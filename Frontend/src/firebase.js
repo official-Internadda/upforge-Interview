@@ -3,15 +3,15 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "ai-interview-bot-5608f.firebaseapp.com",
-  projectId: "ai-interview-bot-5608f",
-  storageBucket: "ai-interview-bot-5608f.firebasestorage.app",
-  messagingSenderId: "636082244148",
-  appId: "1:636082244148:web:c878684eef4e76e58c9861"
+  apiKey: "AIzaSyDZqthtRvba3HGUNL2Km8Zy-69cATfD-v4",
+  authDomain: "upforge-ai-interview.firebaseapp.com",
+  projectId: "upforge-ai-interview",
+  storageBucket: "upforge-ai-interview.firebasestorage.app",
+  messagingSenderId: "874415250689",
+  appId: "1:874415250689:web:c9905fc324ab97afd94f00"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
