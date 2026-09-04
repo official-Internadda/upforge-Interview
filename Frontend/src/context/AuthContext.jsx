@@ -12,19 +12,30 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        // Fetch role from Firestore
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          setRole(userDoc.data().role);
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+
+          const userRef = doc(db, "users", firebaseUser.uid);
+          const userDoc = await getDoc(userRef);
+
+          if (userDoc.exists()) {
+            setRole(userDoc.data().role || "candidate");
+          } else {
+            setRole("candidate");
+          }
+        } else {
+          setUser(null);
+          setRole(null);
         }
-      } else {
-        setUser(null);
-        setRole(null);
+      } catch (error) {
+        console.error("Firestore error:", error);
+        setRole("candidate");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
+
     return unsubscribe;
   }, []);
 
