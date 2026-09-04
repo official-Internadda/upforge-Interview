@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { db } from "../firebase";
 import { collection, addDoc } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function CreateSession() {
-  const { user } = useAuth();
   const navigate = useNavigate();
-
   const [candidateName, setCandidateName] = useState("");
-  const [candidateEmail, setCandidateEmail] = useState("");
   const [role, setRole] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("mid");
   const [startTime, setStartTime] = useState("");
@@ -23,22 +19,21 @@ export default function CreateSession() {
     setLoading(true);
     try {
       const sessionId = crypto.randomUUID();
-      if (new Date(endTime) <= new Date(startTime)) {
+      if (startTime && endTime && new Date(endTime) <= new Date(startTime)) {
         setError("End time must be after the start time.");
         setLoading(false);
         return;
       }
-
       await addDoc(collection(db, "sessions"), {
         sessionId,
-        candidateName,
-        candidateEmail,
-        role,
+        candidateName: candidateName.trim() || "Candidate",
+        candidateEmail: "",
+        role: role.trim(),
         experienceLevel,
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
+        startTime: startTime ? new Date(startTime).toISOString() : null,
+        endTime: endTime ? new Date(endTime).toISOString() : null,
         status: "pending",
-        createdBy: user.uid,
+        createdBy: "admin_master_uid",
         createdAt: new Date().toISOString(),
         resumeText: null,
         transcript: [],
@@ -46,6 +41,7 @@ export default function CreateSession() {
       });
       navigate("/admin");
     } catch (err) {
+      console.error(err);
       setError("Failed to create session. Try again.");
     }
     setLoading(false);
@@ -56,7 +52,6 @@ export default function CreateSession() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Professional Header */}
       <header className="sticky top-0 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -66,8 +61,8 @@ export default function CreateSession() {
                 <span className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">Interview Manager</span>
               </div>
             </div>
-            <Link 
-              to="/admin" 
+            <Link
+              to="/admin"
               className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <svg className="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -83,7 +78,7 @@ export default function CreateSession() {
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create Interview Session</h1>
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-            Set up a new interview for your candidate
+            Configure role and schedule to generate candidate link
           </p>
         </div>
 
@@ -106,115 +101,80 @@ export default function CreateSession() {
           <form onSubmit={handleCreate} className="px-6 py-8 sm:p-10">
             <div className="space-y-8">
               <div>
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Candidate Information</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Enter the candidate's details to create their interview session
-                </p>
-                
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Interview Details</h2>
                 <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-3">
                     <label htmlFor="candidateName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Full Name
+                      Candidate Name (Optional)
                     </label>
-                    <div className="mt-1">
-                      <input
-                        type="text"
-                        id="candidateName"
-                        value={candidateName}
-                        onChange={(e) => setCandidateName(e.target.value)}
-                        required
-                        className={inputClass}
-                        placeholder="John Smith"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      id="candidateName"
+                      value={candidateName}
+                      onChange={(e) => setCandidateName(e.target.value)}
+                      className={inputClass}
+                      placeholder="e.g. Rahul Sharma"
+                    />
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="candidateEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email Address
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        type="email"
-                        id="candidateEmail"
-                        value={candidateEmail}
-                        onChange={(e) => setCandidateEmail(e.target.value)}
-                        required
-                        className={inputClass}
-                        placeholder="john@company.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-4">
                     <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Role / Position
                     </label>
-                    <div className="mt-1">
-                      <input
-                        type="text"
-                        id="role"
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                        required
-                        className={inputClass}
-                        placeholder="Frontend Developer, Product Manager, etc."
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      id="role"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      required
+                      className={inputClass}
+                      placeholder="e.g. Frontend Developer"
+                    />
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-6">
                     <label htmlFor="experienceLevel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Experience Level
+                      Difficulty / Experience Level
                     </label>
-                    <div className="mt-1">
-                      <select
-                        id="experienceLevel"
-                        value={experienceLevel}
-                        onChange={(e) => setExperienceLevel(e.target.value)}
-                        className={inputClass}
-                      >
-                        <option value="fresher">Fresher (0–1 years)</option>
-                        <option value="junior">Junior (1–2 years)</option>
-                        <option value="mid">Mid-level (2–4 years)</option>
-                        <option value="senior">Senior (4+ years)</option>
-                      </select>
-                    </div>
+                    <select
+                      id="experienceLevel"
+                      value={experienceLevel}
+                      onChange={(e) => setExperienceLevel(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="fresher">Fresher (0 - 1 years)</option>
+                      <option value="junior">Junior (1 - 2 years)</option>
+                      <option value="mid">Mid-level (2 - 4 years)</option>
+                      <option value="senior">Senior (4+ years)</option>
+                    </select>
                   </div>
 
-                  <div className="sm:col-span-3 border-t border-gray-100 dark:border-gray-700/50 pt-6 mt-2 col-span-full">
-                    <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">Interview Schedule</h3>
+                  <div className="sm:col-span-6 border-t border-gray-100 dark:border-gray-700/50 pt-6 mt-2">
+                    <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">Time Constraints (Optional)</h3>
                     <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
                       <div>
                         <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Start Time
                         </label>
-                        <div className="mt-1">
-                          <input
-                            type="datetime-local"
-                            id="startTime"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                            required
-                            className={inputClass}
-                          />
-                        </div>
+                        <input
+                          type="datetime-local"
+                          id="startTime"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className={inputClass}
+                        />
                       </div>
-
                       <div>
                         <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           End Time
                         </label>
-                        <div className="mt-1">
-                          <input
-                            type="datetime-local"
-                            id="endTime"
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                            required
-                            className={inputClass}
-                          />
-                        </div>
+                        <input
+                          type="datetime-local"
+                          id="endTime"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className={inputClass}
+                        />
                       </div>
                     </div>
                   </div>
@@ -225,26 +185,16 @@ export default function CreateSession() {
                 <button
                   type="button"
                   onClick={() => navigate("/admin")}
-                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="ml-3 inline-flex items-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="ml-3 inline-flex items-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
                 >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Creating...
-                    </>
-                  ) : (
-                    "Create Session"
-                  )}
+                  {loading ? "Creating..." : "Create Session & Generate Link"}
                 </button>
               </div>
             </div>
