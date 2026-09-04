@@ -2,7 +2,15 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
-import { FiClock, FiShield, FiSend, FiCameraOff, FiAlertTriangle, FiCode } from "react-icons/fi";
+import {
+  FiClock,
+  FiShield,
+  FiSend,
+  FiCameraOff,
+  FiAlertTriangle,
+  FiMaximize2,
+  FiMinimize2
+} from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
 const TOTAL_SECONDS = 1800; // 30 Minutes
@@ -22,10 +30,11 @@ export default function TerminalRoom() {
   const [questionCount, setQuestionCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
 
-  // Proctoring
+  // Proctoring States
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [warnings, setWarnings] = useState(0);
   const [showWarningToast, setShowWarningToast] = useState(false);
+  const [camCollapsed, setCamCollapsed] = useState(false);
 
   const videoRef = useRef(null);
   const terminalEndRef = useRef(null);
@@ -57,17 +66,23 @@ export default function TerminalRoom() {
     load();
   }, [sessionId]);
 
-  // Camera & Tab Proctoring Setup
+  // Hardware Camera & Anti-Cheating Tab Switch
   useEffect(() => {
     if (!docId || isComplete || isTerminated) return;
-    let stream = null;
+    let localStream = null;
 
-    async function initCam() {
+    async function initHardwareEye() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+          audio: false
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = localStream;
+        }
         setCameraEnabled(true);
       } catch (err) {
+        console.warn("Hardware camera unavailable:", err);
         setCameraEnabled(false);
       }
     }
@@ -89,7 +104,7 @@ export default function TerminalRoom() {
 
     async function triggerTermination() {
       setIsTerminated(true);
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (localStream) localStream.getTracks().forEach((t) => t.stop());
       await updateDoc(doc(db, "sessions", docId), {
         status: "terminated",
         terminatedAt: new Date().toISOString(),
@@ -97,14 +112,25 @@ export default function TerminalRoom() {
       });
     }
 
-    initCam();
+    initHardwareEye();
     document.addEventListener("visibilitychange", handleTabSwitch);
 
     return () => {
       document.removeEventListener("visibilitychange", handleTabSwitch);
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (localStream) localStream.getTracks().forEach((t) => t.stop());
     };
   }, [docId, isComplete, isTerminated]);
+
+  // Attach stream whenever videoRef renders
+  useEffect(() => {
+    if (videoRef.current && cameraEnabled && !camCollapsed) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then((s) => {
+          if (videoRef.current) videoRef.current.srcObject = s;
+        })
+        .catch(() => {});
+    }
+  }, [camCollapsed, cameraEnabled]);
 
   // 30 Min Timer
   useEffect(() => {
@@ -134,7 +160,7 @@ export default function TerminalRoom() {
     }
   }
 
-  // Initial Question
+  // Auto-trigger First Question
   useEffect(() => {
     if (session && messages.length === 0) {
       askTerminalAI([]);
@@ -202,7 +228,7 @@ export default function TerminalRoom() {
       console.error(err);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: ">> ERR_CONNECTION_RETRY: Please re-type your submission." },
+        { role: "assistant", content: ">> ERROR_RETRY: Server connection interrupted. Please re-submit your response." },
       ]);
     }
     setThinking(false);
@@ -227,20 +253,20 @@ export default function TerminalRoom() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center text-[#0F172A] font-mono text-sm">
-        ALLOCATING_SECURE_ENVIRONMENT...
+      <div className="min-h-screen bg-white flex items-center justify-center text-slate-800 font-mono text-xs">
+        ALLOCATING_SECURE_EXAM_SANDBOX...
       </div>
     );
   }
 
   if (isTerminated) {
     return (
-      <div className="min-h-screen bg-[#FEF2F2] flex items-center justify-center p-6 text-[#991B1B] font-mono">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-white border border-[#FECACA] text-center shadow-xl">
-          <FiAlertTriangle className="w-12 h-12 text-[#DC2626] mx-auto mb-3" />
-          <h2 className="text-xl font-bold text-[#991B1B]">ASSESSMENT TERMINATED</h2>
-          <p className="text-xs text-[#475569] mt-2 leading-relaxed">
-            Automated integrity protocols flagged 3 window-blur strikes. Your assessment has been permanently locked and flagged in the UpForge registry.
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-6 text-red-900 font-sans">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-white border border-red-200 text-center shadow-lg">
+          <FiAlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-red-700">ASSESSMENT TERMINATED</h2>
+          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+            Integrity protocols recorded 3 window changes. This session is locked and registered as invalid.
           </p>
         </div>
       </div>
@@ -248,46 +274,50 @@ export default function TerminalRoom() {
   }
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-mono text-xs selection:bg-[#2563EB] selection:text-white">
-      {/* Toast Warning */}
+    <div className="h-screen bg-[#FBFBFC] text-[#0F172A] flex flex-col font-sans text-xs selection:bg-blue-600 selection:text-white overflow-hidden">
+      {/* Tab Switch Warning Toast */}
       {showWarningToast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#DC2626] text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 animate-bounce border border-red-300">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded-xl shadow-2xl flex items-center space-x-2 text-xs animate-bounce border border-red-300">
           <FiAlertTriangle />
-          <span className="font-bold">VIOLATION STRIKE {warnings}/3: Window switch detected!</span>
+          <span className="font-bold">VIOLATION {warnings}/3: Do not switch tabs or minimize!</span>
         </div>
       )}
 
-      {/* Top Professional Header */}
-      <header className="h-16 border-b border-[#E2E8F0] bg-white px-6 flex items-center justify-between shadow-sm">
-        <div className="flex items-center space-x-3">
-          <span className="text-[#2563EB] font-bold tracking-wider">UPFORGE_TERMINAL</span>
-          <span className="text-[#CBD5E1]">|</span>
-          <span className="text-[#0F172A] font-semibold">{session?.role}</span>
-          <span className="text-[#64748B] text-[11px]">({session?.candidateName})</span>
+      {/* Top Navbar */}
+      <header className="h-14 sm:h-16 border-b border-slate-200 bg-white px-4 sm:px-6 flex items-center justify-between shadow-2xs z-30">
+        <div className="flex items-center space-x-2 truncate max-w-[50%]">
+          <span className="font-bold text-blue-600 tracking-wide text-xs">InternAdda</span>
+          <span className="text-slate-300">|</span>
+          <span className="font-semibold text-slate-900 truncate text-xs">{session?.role}</span>
         </div>
 
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2 text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-1 rounded-lg">
-            <FiClock />
+        <div className="flex items-center space-x-3 sm:space-x-5">
+          <div className="flex items-center space-x-1.5 text-blue-700 bg-blue-50 border border-blue-200 px-2.5 sm:px-3 py-1 rounded-lg font-mono">
+            <FiClock className="w-3.5 h-3.5" />
             <span className="font-bold">{formatTimer(timeLeft)}</span>
           </div>
 
-          <span className="text-[#64748B] font-semibold">Question {questionCount}/10</span>
+          <span className="text-slate-500 font-semibold text-[11px]">
+            Q: {questionCount}/10
+          </span>
 
-          <div className="flex items-center space-x-1.5 text-[#059669] text-[11px] font-bold bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-0.5 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-            <span>PROCTORED</span>
-          </div>
+          <button
+            onClick={() => setCamCollapsed(!camCollapsed)}
+            className="sm:hidden p-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
+            title="Toggle Hardware Eye"
+          >
+            {camCollapsed ? <FiMaximize2 /> : <FiMinimize2 />}
+          </button>
         </div>
       </header>
 
-      {/* Main Terminal Body */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Terminal Chat Stream (Left/Center) */}
-        <div className="flex-1 flex flex-col overflow-hidden pb-44">
-          <div className="flex-1 overflow-y-auto p-8 space-y-5 pr-64 sm:pr-80">
-            <div className="text-[#64748B] pb-3 border-b border-[#E2E8F0] text-[11px]">
-              * Standardized CLI assessment initialized. Type logic, answers, SQL statements, or algorithm blocks directly into the input buffer.
+      {/* Main Workspace */}
+      <div className="flex-1 flex flex-col sm:flex-row overflow-hidden relative">
+        {/* Terminal Chat Area */}
+        <div className="flex-1 flex flex-col overflow-hidden pb-44 sm:pb-36">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:pr-80">
+            <div className="p-3 bg-white rounded-xl border border-slate-200 text-slate-500 text-[11px] leading-relaxed">
+              * Assessment initialized for <span className="font-semibold text-slate-800">{session?.candidateName}</span>. Type your logic, code, or practical reasoning directly into the command buffer below.
             </div>
 
             {messages.map((m, idx) => (
@@ -295,30 +325,34 @@ export default function TerminalRoom() {
                 key={idx}
                 className={`p-4 rounded-2xl border ${
                   m.role === "assistant"
-                    ? "bg-white border-[#E2E8F0] text-[#0F172A] shadow-sm"
-                    : "bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]"
+                    ? "bg-white border-slate-200 text-slate-900 shadow-2xs"
+                    : "bg-blue-50/80 border-blue-200 text-blue-950 font-mono text-[11px]"
                 }`}
               >
-                <div className="font-bold text-[10px] text-[#64748B] uppercase tracking-wider mb-1">
-                  {m.role === "assistant" ? "Examiner Prompt" : "Candidate Response"}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold text-[10px] uppercase tracking-wider text-slate-500">
+                    {m.role === "assistant" ? "Examiner Assessment Prompt" : "Candidate Code / Buffer"}
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-mono">#{(idx + 1).toString().padStart(2, "0")}</span>
                 </div>
-                <div className="whitespace-pre-wrap leading-relaxed text-xs font-sans">
+                <div className="whitespace-pre-wrap leading-relaxed text-xs">
                   {m.content}
                 </div>
               </div>
             ))}
 
             {thinking && (
-              <div className="text-[#2563EB] flex items-center space-x-2 animate-pulse font-sans text-xs">
-                <span>Analyzing code buffer and synthesizing follow-up prompt...</span>
+              <div className="p-3 bg-white border border-slate-200 rounded-xl text-blue-600 flex items-center space-x-2 animate-pulse text-xs">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                <span>AI Examiner is verifying your solution & generating next probe...</span>
               </div>
             )}
 
             {isComplete && (
-              <div className="p-6 rounded-2xl bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] space-y-2 mt-4 shadow-sm font-sans">
-                <p className="font-extrabold text-sm">ASSESSMENT COMPLETED SUCCESSFULLY.</p>
-                <p className="text-xs text-[#047857]">
-                  Your technical transcript and code submissions have been indexed for the UpForge Talent Committee.
+              <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1 mt-3 shadow-xs">
+                <p className="font-extrabold text-sm">ASSESSMENT COMPLETED</p>
+                <p className="text-xs text-emerald-700">
+                  Your telemetry and answers have been successfully stored in the talent registry.
                 </p>
               </div>
             )}
@@ -327,37 +361,61 @@ export default function TerminalRoom() {
           </div>
         </div>
 
-        {/* Live Proctoring Cam Box (Top Right) */}
-        <div className="absolute right-6 top-6 w-52 sm:w-64 z-20 pointer-events-none">
-          <div className="bg-white border border-[#CBD5E1] rounded-2xl overflow-hidden shadow-xl relative pointer-events-auto">
-            <div className="h-36 sm:h-44 bg-[#0F172A] flex items-center justify-center">
-              {cameraEnabled ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover transform scale-x-[-1]"
-                />
-              ) : (
-                <div className="text-[#64748B] text-center text-[10px]">
-                  <FiCameraOff className="mx-auto mb-1 w-5 h-5" />
-                  FEED_STANDBY
-                </div>
-              )}
-            </div>
-            <div className="p-2.5 bg-white border-t border-[#E2E8F0] flex justify-between items-center text-[10px] text-[#475569]">
-              <span className="font-bold">HARDWARE EYE</span>
-              <span className="text-[#10B981] font-bold">1080p LIVE</span>
+        {/* Live Hardware Eye / Camera Widget (Top Right Desktop, Collapsible on Mobile) */}
+        {!camCollapsed && (
+          <div className="absolute right-4 top-4 sm:top-6 sm:right-6 w-40 sm:w-68 z-20">
+            <div className="bg-white border border-slate-300 rounded-2xl overflow-hidden shadow-xl relative ring-2 ring-blue-500/20">
+              <div className="h-28 sm:h-44 bg-slate-950 relative flex items-center justify-center overflow-hidden">
+                {cameraEnabled ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover transform scale-x-[-1]"
+                    />
+
+                    {/* AI Hardware Eye HUD Visual Overlay */}
+                    <div className="absolute inset-0 pointer-events-none">
+                      {/* Bounding box corners */}
+                      <div className="absolute inset-3 border border-emerald-400/40 rounded-lg"></div>
+                      <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-emerald-400"></div>
+                      <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-emerald-400"></div>
+                      <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-emerald-400"></div>
+                      <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-emerald-400"></div>
+
+                      {/* Scanning Line Animation */}
+                      <div className="w-full h-[1px] bg-emerald-400/80 shadow-[0_0_8px_#34D399] absolute top-1/2 -translate-y-1/2 animate-pulse"></div>
+
+                      {/* HUD Top Tag */}
+                      <div className="absolute top-1.5 left-2 flex items-center space-x-1 font-mono text-[9px] text-emerald-400 font-bold bg-black/60 px-1.5 py-0.5 rounded">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span>AI_EYE_ACTIVE</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-slate-500 text-center text-[10px] p-2">
+                    <FiCameraOff className="mx-auto mb-1 w-5 h-5 text-slate-600" />
+                    CAMERA_PENDING_PERMISSION
+                  </div>
+                )}
+              </div>
+
+              <div className="p-2 bg-white border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-600 font-mono">
+                <span className="font-semibold text-slate-800">HARDWARE EYE</span>
+                <span className="text-emerald-600 font-bold">1080p ENFORCED</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Command Buffer Input Bar (Bottom) */}
+        {/* Input Command Buffer Bar (Bottom) */}
         {!isComplete && (
-          <div className="absolute bottom-6 left-6 right-6 sm:right-72 z-30">
-            <div className="bg-white border border-[#CBD5E1] rounded-2xl p-3.5 shadow-2xl">
-              <div className="flex items-start space-x-3">
+          <div className="absolute bottom-3 sm:bottom-4 left-3 right-3 sm:left-6 sm:right-76 z-30">
+            <div className="bg-white border border-slate-300 rounded-2xl p-2.5 sm:p-3.5 shadow-xl">
+              <div className="flex items-end space-x-2">
                 <textarea
                   value={inputBuffer}
                   onChange={(e) => setInputBuffer(e.target.value)}
@@ -368,17 +426,17 @@ export default function TerminalRoom() {
                     }
                   }}
                   disabled={thinking}
-                  placeholder="Type your explanation, logic, or code here... (Shift+Enter for newline, Enter to submit)"
-                  className="flex-1 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-3 text-xs font-mono resize-none focus:outline-none focus:border-[#2563EB] text-[#0F172A] placeholder-[#94A3B8]"
-                  rows={3}
+                  placeholder="Type code or answer... (Shift+Enter for newline, Enter to submit)"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 text-xs font-mono resize-none focus:outline-none focus:border-blue-600 focus:bg-white text-slate-900 transition"
+                  rows={2}
                 />
                 <button
                   onClick={handleSend}
                   disabled={!inputBuffer.trim() || thinking}
-                  className="h-12 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 text-white rounded-xl font-bold flex items-center space-x-2 transition shadow-md shadow-blue-500/20"
+                  className="h-10 sm:h-12 px-4 sm:px-6 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl font-bold flex items-center justify-center space-x-1.5 transition active:scale-95 shrink-0"
                 >
-                  <span>Submit</span>
-                  <FiSend />
+                  <span className="text-xs">Submit</span>
+                  <FiSend className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
