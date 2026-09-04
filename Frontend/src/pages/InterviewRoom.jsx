@@ -3,9 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { FiCameraOff, FiAlertTriangle } from "react-icons/fi";
+import { FiCameraOff, FiAlertTriangle, FiMic, FiMicOff, FiSend, FiClock } from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const INTERVIEW_DURATION_SECONDS = 600; // 10 Minutes
 
 export default function InterviewRoom() {
   const { sessionId } = useParams();
@@ -19,11 +20,11 @@ export default function InterviewRoom() {
   const [isComplete, setIsComplete] = useState(false);
   const [isTerminated, setIsTerminated] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
-  const [mode, setMode] = useState("voice");
-  const [textInput, setTextInput] = useState("");
-  const [micSupported, setMicSupported] = useState(true);
+  const [inputText, setInputText] = useState("");
+  const [micActive, setMicActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(INTERVIEW_DURATION_SECONDS);
 
-  // Camera & Proctoring States
+  // Proctoring States
   const [stream, setStream] = useState(null);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [warnings, setWarnings] = useState(0);
@@ -32,16 +33,13 @@ export default function InterviewRoom() {
   const bottomRef = useRef(null);
   const videoRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
-  const listeningActiveRef = useRef(false);
-  const silenceTimerRef = useRef(null);
-  const lastTranscriptRef = useRef("");
+  const timerRef = useRef(null);
 
   const {
     transcript,
     listening,
     resetTranscript,
     browserSupportsSpeechRecognition,
-    isMicrophoneAvailable,
   } = useSpeechRecognition();
 
   // Load Session
@@ -66,13 +64,50 @@ export default function InterviewRoom() {
     fetchSession();
   }, [sessionId]);
 
-  // Check Speech Recognition Capability
+  // Sync Voice Transcript with Unified Input Box
   useEffect(() => {
-    if (!browserSupportsSpeechRecognition) {
-      setMicSupported(false);
-      setMode("text");
+    if (transcript) {
+      setInputText((prev) => {
+        const base = prev ? prev.trim() + " " : "";
+        return base + transcript;
+      });
+      resetTranscript();
     }
-  }, [browserSupportsSpeechRecognition]);
+  }, [transcript]);
+
+  // 10-Minute Countdown Timer
+  useEffect(() => {
+    if (loading || isComplete || isTerminated) return;
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          handleTimeExpired();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [loading, isComplete, isTerminated, docId, messages]);
+
+  async function handleTimeExpired() {
+    setIsComplete(true);
+    stopListening();
+    if (synthRef.current) synthRef.current.cancel();
+
+    if (docId) {
+      await updateDoc(doc(db, "sessions", docId), {
+        transcript: messages,
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        terminationReason: "10-Minute Window Completed",
+      });
+      generateReport(messages);
+    }
+  }
 
   // Camera & Anti-cheating setup
   useEffect(() => {
@@ -83,7 +118,7 @@ export default function InterviewRoom() {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: false, // Keep audio free for speech recognition
+          audio: false,
         });
         setStream(mediaStream);
         setCameraEnabled(true);
@@ -123,7 +158,7 @@ export default function InterviewRoom() {
           status: "terminated",
           terminatedAt: new Date().toISOString(),
           warningsCount: 3,
-          terminationReason: "Cheating Detected (Tab Switches)",
+          terminationReason: "Integrity Violation: Unauthorized tab switching",
         });
       } catch (err) {
         console.error("Failed to terminate session:", err);
@@ -147,7 +182,7 @@ export default function InterviewRoom() {
     }
   }, [stream]);
 
-  // Start interview on session load
+  // Initial Question
   useEffect(() => {
     if (session && messages.length === 0) {
       askAI([]);
@@ -158,36 +193,23 @@ export default function InterviewRoom() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
-  // Silence Detector (Sends spoken response after 2.5s of silence)
-  useEffect(() => {
-    if (!listening || !listeningActiveRef.current) return;
-    if (transcript === lastTranscriptRef.current) return;
-
-    lastTranscriptRef.current = transcript;
-    clearTimeout(silenceTimerRef.current);
-
-    silenceTimerRef.current = setTimeout(() => {
-      if (transcript.trim() && listeningActiveRef.current) {
-        stopListening();
-        handleVoiceSend(transcript.trim());
-      }
-    }, 2500);
-  }, [transcript, listening]);
-
+  // Executive AI Voice Settings
   function speakText(text, onDone) {
+    if (!window.speechSynthesis) return;
     synthRef.current.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+    utterance.rate = 0.98;
+    utterance.pitch = 0.95;
+    utterance.volume = 1.0;
 
     const voices = synthRef.current.getVoices();
-    const preferred =
-      voices.find((v) => v.lang === "en-US" && v.name.toLowerCase().includes("natural")) ||
+    const premiumVoice =
+      voices.find((v) => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha"))) ||
       voices.find((v) => v.lang === "en-US") ||
       voices[0];
 
-    if (preferred) utterance.voice = preferred;
+    if (premiumVoice) utterance.voice = premiumVoice;
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
@@ -205,21 +227,29 @@ export default function InterviewRoom() {
   async function startListening() {
     try {
       resetTranscript();
-      lastTranscriptRef.current = "";
-      listeningActiveRef.current = true;
+      setMicActive(true);
       await SpeechRecognition.startListening({
         continuous: true,
         language: "en-US",
       });
     } catch (err) {
-      console.error("Failed to start speech recognition:", err);
+      console.error("Mic start error:", err);
+      setMicActive(false);
     }
   }
 
   function stopListening() {
-    listeningActiveRef.current = false;
-    clearTimeout(silenceTimerRef.current);
+    setMicActive(false);
     SpeechRecognition.stopListening();
+  }
+
+  function toggleMic() {
+    if (micActive || listening) {
+      stopListening();
+    } else {
+      if (synthRef.current) synthRef.current.cancel();
+      startListening();
+    }
   }
 
   async function generateReport(finalMessages) {
@@ -242,7 +272,7 @@ export default function InterviewRoom() {
         });
       }
     } catch (err) {
-      console.error("Report generation failed:", err);
+      console.error("Report error:", err);
     }
   }
 
@@ -270,6 +300,7 @@ export default function InterviewRoom() {
 
       if (data.isComplete) {
         setIsComplete(true);
+        stopListening();
         await updateDoc(doc(db, "sessions", docId), {
           transcript: updatedMessages,
           status: "completed",
@@ -279,74 +310,51 @@ export default function InterviewRoom() {
         speakText(data.reply, null);
         generateReport(updatedMessages);
       } else {
-        // AI speaks, then auto-starts listening if in voice mode
-        speakText(data.reply, () => {
-          if (mode === "voice" && !isComplete) {
-            startListening();
-          }
-        });
+        speakText(data.reply, null);
       }
     } catch (err) {
-      console.error("Chat fetch error:", err);
+      console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I had trouble connecting. Please refresh and try again.",
+          content: "I apologize, could you please repeat or submit that again?",
         },
       ]);
     }
     setThinking(false);
   }
 
-  async function handleVoiceSend(spokenText) {
-    if (!spokenText || thinking || isComplete) return;
-    const userMessage = { role: "user", content: spokenText };
+  async function handleSubmitAnswer() {
+    const trimmed = inputText.trim();
+    if (!trimmed || thinking || isComplete) return;
+
+    if (micActive) stopListening();
+
+    const userMessage = { role: "user", content: trimmed };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
-    resetTranscript();
-    await askAI(updatedMessages);
-  }
-
-  async function handleTextSend() {
-    const trimmed = textInput.trim();
-    if (!trimmed || thinking || isComplete) return;
-    const updatedMessages = [...messages, { role: "user", content: trimmed }];
-    setMessages(updatedMessages);
-    setTextInput("");
+    setInputText("");
     await askAI(updatedMessages);
   }
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleTextSend();
+      handleSubmitAnswer();
     }
   }
 
-  function handleMicClick() {
-    if (listening) {
-      stopListening();
-    } else {
-      synthRef.current.cancel();
-      startListening();
-    }
-  }
-
-  function getStatusLabel() {
-    if (thinking) return { text: "AI is thinking...", color: "text-yellow-400", dot: "bg-yellow-400" };
-    if (isSpeaking) return { text: "AI Interviewer speaking...", color: "text-blue-400", dot: "bg-blue-400" };
-    if (listening) return { text: "Listening... speak now", color: "text-emerald-400", dot: "bg-emerald-400" };
-    if (isComplete) return { text: "Interview complete", color: "text-emerald-400", dot: "bg-emerald-400" };
-    return { text: "Click Mic to Answer", color: "text-slate-400", dot: "bg-slate-500" };
-  }
-
-  const status = getStatusLabel();
+  const formatTime = (secs) => {
+    const mins = Math.floor(secs / 60);
+    const remSecs = secs % 60;
+    return `${mins.toString().padStart(2, "0")}:${remSecs.toString().padStart(2, "0")}`;
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
@@ -355,86 +363,65 @@ export default function InterviewRoom() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 text-white">
         <div className="max-w-md w-full bg-slate-900 border border-red-800 rounded-2xl p-8 text-center">
-          <h1 className="text-2xl font-bold text-red-500 mb-3">Interview Terminated</h1>
-          <p className="text-sm text-slate-400">Multiple tab violations detected.</p>
+          <FiAlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-red-500 mb-2">Session Terminated</h1>
+          <p className="text-sm text-slate-400">
+            Automated integrity protocols flagged 3 out-of-window violations. Your evaluation has been locked.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-slate-950 flex flex-col font-sans overflow-hidden text-white">
-      {/* Toast Warning */}
+    <div className="h-screen bg-[#070b14] flex flex-col font-sans overflow-hidden text-slate-100">
+      {/* Tab Switch Warning Toast */}
       {showWarningToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-2 animate-bounce">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-600/95 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-3 animate-bounce border border-red-400">
           <FiAlertTriangle className="w-5 h-5" />
-          <span className="font-semibold text-sm">Warning: Do not switch tabs!</span>
+          <span className="font-semibold text-sm">Strike {warnings}/3: Do not switch tabs or windows!</span>
         </div>
       )}
 
       {/* Header */}
-      <header className="fixed top-0 w-full z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+      <header className="fixed top-0 w-full z-40 bg-[#0c1222]/90 backdrop-blur-md border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
             <div>
-              <h1 className="text-base font-bold">AI Interview</h1>
-              <p className="text-xs text-slate-400">
-                {session?.role} • {session?.candidateName}
-              </p>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-bold tracking-tight">{session?.role}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  {session?.experienceLevel || "Evaluation"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">Candidate: {session?.candidateName}</p>
             </div>
           </div>
 
+          {/* Center Timer */}
+          <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 font-mono shadow-inner">
+            <FiClock className={`w-4 h-4 ${timeLeft < 120 ? "text-red-400 animate-pulse" : "text-indigo-400"}`} />
+            <span className={`text-sm font-bold ${timeLeft < 120 ? "text-red-400 animate-pulse" : "text-slate-200"}`}>
+              {formatTime(timeLeft)}
+            </span>
+          </div>
+
           <div className="flex items-center space-x-3">
-            {micSupported && (
-              <div className="flex bg-slate-800 rounded-lg p-1">
-                <button
-                  onClick={() => {
-                    synthRef.current.cancel();
-                    setMode("voice");
-                  }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-                    mode === "voice" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Voice
-                </button>
-                <button
-                  onClick={() => {
-                    stopListening();
-                    setMode("text");
-                  }}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
-                    mode === "text" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Text
-                </button>
-              </div>
-            )}
             <span className="text-xs text-slate-400 font-medium">Question {questionCount}</span>
+            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>{isComplete ? "Completed" : "Proctored Live"}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Body */}
+      {/* Main Layout */}
       <div className="flex-1 mt-16 flex flex-col relative overflow-hidden">
-        {/* Status Bar */}
-        <div className="bg-slate-900/60 backdrop-blur-md border-b border-slate-800 py-2.5 z-20">
-          <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${status.dot} animate-pulse`}></span>
-              <span className={`text-xs font-medium ${status.color}`}>{status.text}</span>
-            </div>
-            {mode === "voice" && listening && (
-              <span className="text-xs text-red-400 font-mono animate-pulse">● Recording Voice...</span>
-            )}
-          </div>
-        </div>
-
-        {/* Floating User Camera Video */}
-        <div className="absolute right-6 top-20 z-30 flex flex-col gap-3 w-44 sm:w-56 pointer-events-none">
-          <div className="relative w-full h-32 sm:h-40 bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 pointer-events-auto">
+        {/* Floating Candidate Camera Box */}
+        <div className="absolute right-6 top-6 z-30 flex flex-col gap-3 w-48 sm:w-60 pointer-events-none">
+          <div className="relative w-full h-36 sm:h-44 bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 pointer-events-auto ring-1 ring-white/10">
             {cameraEnabled ? (
               <video
                 ref={videoRef}
@@ -446,54 +433,62 @@ export default function InterviewRoom() {
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-slate-500">
                 <FiCameraOff className="w-6 h-6 mb-1 opacity-50" />
-                <span className="text-[10px]">Camera Inactive</span>
+                <span className="text-[10px]">Camera Standby</span>
               </div>
             )}
-            <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 rounded text-[10px] font-bold">
-              You
+            <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded text-[10px] font-bold text-slate-200">
+              Candidate View
             </div>
-            {listening && (
-              <div className="absolute top-2 right-2 flex items-center space-x-1 bg-emerald-600/80 px-2 py-0.5 rounded text-[10px] font-bold">
-                <span>MIC ON</span>
+            {micActive && (
+              <div className="absolute top-2 right-2 flex items-center space-x-1.5 bg-red-600/90 text-white px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                <span>RECORDING</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Chat History */}
-        <div className="flex-1 overflow-y-auto w-full relative z-10 pb-44">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 md:pr-64 space-y-4">
+        {/* Conversation Stream */}
+        <div className="flex-1 overflow-y-auto w-full relative z-10 pb-48">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 md:pr-72 space-y-4">
             {messages.map((msg, i) => (
               <div
                 key={i}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed ${
+                  className={`max-w-[88%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-md ${
                     msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-br-none"
-                      : "bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none"
+                      ? "bg-indigo-600 text-white rounded-br-none"
+                      : "bg-[#111827] border border-slate-800 text-slate-200 rounded-bl-none"
                   }`}
                 >
-                  {msg.content}
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
                 </div>
               </div>
             ))}
 
             {thinking && (
               <div className="flex justify-start">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-slate-400 flex items-center space-x-2">
-                  <span className="animate-spin inline-block w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full"></span>
-                  <span>AI Interviewer is evaluating...</span>
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-400 flex items-center space-x-2">
+                  <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full"></span>
+                  <span>Interviewer is analyzing your response...</span>
                 </div>
               </div>
             )}
 
-            {listening && transcript && (
-              <div className="flex justify-end">
-                <div className="max-w-[80%] bg-emerald-950/40 border border-emerald-800 rounded-2xl px-4 py-2.5 text-xs text-emerald-300 italic">
-                  {transcript}...
-                </div>
+            {isComplete && (
+              <div className="bg-emerald-950/30 border border-emerald-800/50 rounded-2xl p-6 text-center shadow-lg">
+                <h3 className="text-xl font-bold text-emerald-400 mb-2">Interview Concluded</h3>
+                <p className="text-sm text-slate-300 mb-4">
+                  Thank you for your time. Your assessment metrics and technical evaluation report have been generated.
+                </p>
+                <button
+                  onClick={() => navigate(`/admin/report/${sessionId}`)}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 font-semibold rounded-xl text-sm transition"
+                >
+                  Review Candidate Report
+                </button>
               </div>
             )}
 
@@ -501,50 +496,57 @@ export default function InterviewRoom() {
           </div>
         </div>
 
-        {/* Input Bar */}
+        {/* Hybrid Voice + Text Control Bar */}
         {!isComplete && (
           <div className="absolute bottom-6 left-0 w-full z-20 pointer-events-none">
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 md:pr-64">
-              <div className="bg-slate-900/90 backdrop-blur-2xl border border-slate-800 shadow-2xl rounded-2xl p-4 pointer-events-auto">
-                {mode === "voice" ? (
-                  <div className="flex flex-col items-center space-y-3">
-                    <button
-                      onClick={handleMicClick}
-                      disabled={thinking || isSpeaking}
-                      className={`relative w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all shadow-xl disabled:opacity-40 ${
-                        listening
-                          ? "bg-rose-600 hover:bg-rose-500 text-white scale-105 animate-pulse ring-4 ring-rose-500/30"
-                          : "bg-blue-600 hover:bg-blue-500 text-white"
-                      }`}
-                    >
-                      {listening ? "🛑" : "🎙️"}
-                    </button>
-                    <p className="text-xs text-slate-400 text-center">
-                      {listening
-                        ? "Listening to you... Stays silent 2.5s to submit"
-                        : "Tap mic and speak your answer"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex space-x-3 items-end">
-                    <textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      disabled={thinking}
-                      placeholder="Type your answer here..."
-                      className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-blue-500 text-white"
-                      rows={2}
-                    />
-                    <button
-                      onClick={handleTextSend}
-                      disabled={!textInput.trim() || thinking}
-                      className="h-12 px-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition"
-                    >
-                      Send
-                    </button>
-                  </div>
-                )}
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 md:pr-72">
+              <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-slate-700/80 shadow-2xl rounded-2xl p-3.5 pointer-events-auto">
+                <div className="flex items-end space-x-2">
+                  {/* Mic Toggle Button */}
+                  <button
+                    onClick={toggleMic}
+                    disabled={thinking}
+                    title={micActive ? "Stop Microphone" : "Speak (Dictate Answer)"}
+                    className={`h-12 w-12 rounded-xl flex items-center justify-center text-lg transition-all flex-shrink-0 shadow-md ${
+                      micActive
+                        ? "bg-red-600 hover:bg-red-500 text-white ring-2 ring-red-400/50 animate-pulse"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                    }`}
+                  >
+                    {micActive ? <FiMicOff /> : <FiMic />}
+                  </button>
+
+                  {/* Unified Input Box (Supports typing & speech dictation simultaneously) */}
+                  <textarea
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={thinking}
+                    placeholder={
+                      micActive
+                        ? "Listening... Speak now (you can also edit your words here)"
+                        : "Type your response, or click the mic to speak..."
+                    }
+                    className="flex-1 bg-slate-900 border border-slate-700/70 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 transition"
+                    rows={2}
+                  />
+
+                  {/* Manual Submit Button */}
+                  <button
+                    onClick={handleSubmitAnswer}
+                    disabled={!inputText.trim() || thinking}
+                    className="h-12 px-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl transition flex items-center space-x-2 flex-shrink-0 shadow-lg shadow-indigo-600/20"
+                  >
+                    <span>Submit</span>
+                    <FiSend className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Status caption */}
+                <div className="flex justify-between items-center mt-2 px-1 text-[11px] text-slate-400">
+                  <span>{micActive ? "🎙️ Dictation Active • Click Mic again to stop" : "Press Enter or click Submit when finished"}</span>
+                  <span className="font-mono text-slate-500">{inputText.length} chars</span>
+                </div>
               </div>
             </div>
           </div>
