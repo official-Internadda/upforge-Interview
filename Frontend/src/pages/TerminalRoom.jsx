@@ -9,7 +9,9 @@ import {
   FiCameraOff,
   FiAlertTriangle,
   FiMaximize2,
-  FiMinimize2
+  FiMinimize2,
+  FiExternalLink,
+  FiMail
 } from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
@@ -29,6 +31,7 @@ export default function TerminalRoom() {
   const [isTerminated, setIsTerminated] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
+  const [redirectCountdown, setRedirectCountdown] = useState(10);
 
   // Proctoring States
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -39,6 +42,7 @@ export default function TerminalRoom() {
   const videoRef = useRef(null);
   const terminalEndRef = useRef(null);
   const timerRef = useRef(null);
+  const localStreamRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -69,16 +73,16 @@ export default function TerminalRoom() {
   // Hardware Camera & 3-Strike Tab Guard
   useEffect(() => {
     if (!docId || isComplete || isTerminated) return;
-    let localStream = null;
 
     async function initHardwareEye() {
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
           audio: false,
         });
+        localStreamRef.current = stream;
         if (videoRef.current) {
-          videoRef.current.srcObject = localStream;
+          videoRef.current.srcObject = stream;
         }
         setCameraEnabled(true);
       } catch (err) {
@@ -104,7 +108,9 @@ export default function TerminalRoom() {
 
     async function triggerTermination() {
       setIsTerminated(true);
-      if (localStream) localStream.getTracks().forEach((t) => t.stop());
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
       await updateDoc(doc(db, "sessions", docId), {
         status: "terminated",
         terminatedAt: new Date().toISOString(),
@@ -117,22 +123,19 @@ export default function TerminalRoom() {
 
     return () => {
       document.removeEventListener("visibilitychange", handleTabSwitch);
-      if (localStream) localStream.getTracks().forEach((t) => t.stop());
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
     };
   }, [docId, isComplete, isTerminated]);
 
-  // Keep webcam alive on collapse toggle
   useEffect(() => {
-    if (videoRef.current && cameraEnabled && !camCollapsed) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then((s) => {
-          if (videoRef.current) videoRef.current.srcObject = s;
-        })
-        .catch(() => {});
+    if (videoRef.current && cameraEnabled && !camCollapsed && localStreamRef.current) {
+      videoRef.current.srcObject = localStreamRef.current;
     }
   }, [camCollapsed, cameraEnabled]);
 
-  // 30-Minute Timer
+  // 30-Minute Assessment Countdown
   useEffect(() => {
     if (loading || isComplete || isTerminated) return;
     timerRef.current = setInterval(() => {
@@ -150,6 +153,9 @@ export default function TerminalRoom() {
 
   async function handleTimeOver() {
     setIsComplete(true);
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+    }
     if (docId) {
       await updateDoc(doc(db, "sessions", docId), {
         status: "completed",
@@ -160,7 +166,29 @@ export default function TerminalRoom() {
     }
   }
 
-  // Trigger Question 1
+  // 10-Second Auto-Redirect to upforge.org on Completion
+  useEffect(() => {
+    if (!isComplete) return;
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+    }
+
+    const countdownInterval = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          window.location.href = "https://upforge.org";
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [isComplete]);
+
+  // Trigger First Question
   useEffect(() => {
     if (session && messages.length === 0) {
       askTerminalAI([]);
@@ -169,7 +197,7 @@ export default function TerminalRoom() {
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, thinking]);
+  }, [messages, thinking, isComplete]);
 
   async function generateReport(finalMessages) {
     try {
@@ -216,6 +244,9 @@ export default function TerminalRoom() {
 
       if (data.isComplete || questionCount >= 10) {
         setIsComplete(true);
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((t) => t.stop());
+        }
         await updateDoc(doc(db, "sessions", docId), {
           status: "completed",
           completedAt: new Date().toISOString(),
@@ -349,12 +380,53 @@ export default function TerminalRoom() {
               </div>
             )}
 
+            {/* Assessment Completed Modal / Banner */}
             {isComplete && (
-              <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1 mt-3 shadow-xs">
-                <p className="font-extrabold text-sm">ASSESSMENT COMPLETED</p>
-                <p className="text-xs text-emerald-700">
-                  Your answers and telemetry have been recorded in the talent registry.
-                </p>
+              <div className="p-6 rounded-3xl bg-white border-2 border-emerald-500/40 text-slate-900 shadow-xl space-y-4 mt-4 animate-fade-in">
+                <div className="flex items-center space-x-2 text-emerald-700">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></span>
+                  <p className="font-black text-base tracking-wide uppercase">ASSESSMENT COMPLETED</p>
+                </div>
+
+                <div className="space-y-2 text-xs leading-relaxed text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    Your answers and telemetry have been recorded in the talent registry.
+                  </p>
+                  <p>
+                    Your response has been sent to team UpForge. You will receive a reply soon.
+                  </p>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                    <div className="flex items-center space-x-1.5 font-semibold text-slate-800">
+                      <FiMail className="w-3.5 h-3.5 text-blue-600" />
+                      <span>For more queries, contact:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[11px] font-mono text-blue-700">
+                      <a href="mailto:support@upforge.org" className="underline hover:text-blue-900">
+                        support@upforge.org
+                      </a>
+                      <span>•</span>
+                      <a href="mailto:support@internadda.com" className="underline hover:text-blue-900">
+                        support@internadda.com
+                      </a>
+                    </div>
+                  </div>
+                  <p className="text-slate-600 italic">
+                    Stay positive! Till then, explore UpForge and understand the business model in depth.
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-[11px] font-mono font-semibold text-slate-500">
+                    Auto-redirecting in <span className="text-blue-600 font-bold text-sm">{redirectCountdown}s</span>...
+                  </div>
+                  <a
+                    href="https://upforge.org"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition shadow-sm"
+                  >
+                    <span>Visit upforge.org Now</span>
+                    <FiExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
             )}
 
@@ -363,7 +435,7 @@ export default function TerminalRoom() {
         </div>
 
         {/* Live Hardware Eye Camera HUD */}
-        {!camCollapsed && (
+        {!camCollapsed && !isComplete && (
           <div className="absolute right-4 top-4 sm:top-6 sm:right-6 w-44 sm:w-68 z-20">
             <div className="bg-white border border-slate-300 rounded-2xl overflow-hidden shadow-xl relative ring-2 ring-blue-500/20">
               <div className="h-28 sm:h-44 bg-slate-950 relative flex items-center justify-center overflow-hidden">
