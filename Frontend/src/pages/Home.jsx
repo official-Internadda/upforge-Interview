@@ -1,404 +1,351 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiShield,
   FiArrowRight,
-  FiCheck,
-  FiAward,
-  FiTerminal,
-  FiActivity,
-  FiLock,
-  FiMenu,
-  FiX,
+  FiCheckCircle,
+  FiShield,
   FiCode,
+  FiDatabase,
   FiTrendingUp,
   FiLayout,
-  FiDatabase
+  FiTerminal,
+  FiAward,
+  FiMenu,
+  FiX
 } from "react-icons/fi";
 
 export default function Home() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("all");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [verifiedCount, setVerifiedCount] = useState(18420);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setVerifiedCount((prev) => prev + Math.floor(Math.random() * 2) + 1);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
-
-  const assessmentTracks = [
+  const tracks = [
     {
       title: "Full Stack Web Development",
       slug: "full-stack-web-development",
-      category: "tech",
-      icon: <FiCode className="text-blue-600" />,
-      badge: "Highest Demand",
-      desc: "React, Node.js, REST APIs, asynchronous database queries, state lifecycles and modern edge architecture.",
-      topics: ["React / Next.js", "Node.js", "PostgreSQL / MongoDB", "API Design"],
-      duration: "30 Min Live Assessment"
+      category: "Engineering",
+      icon: <FiCode className="w-6 h-6 text-blue-600" />,
+      desc: "React, Next.js, Node.js APIs, database relationships, and async request lifecycles.",
+      questions: "10 Technical Questions",
+      duration: "30 Mins"
     },
     {
       title: "Core Software Engineering",
       slug: "software-engineer",
-      category: "tech",
-      icon: <FiTerminal className="text-indigo-600" />,
-      badge: "Standard Track",
-      desc: "Data structures, algorithmic time complexity, memory management, and clean modular code design.",
-      topics: ["DSA & Logic", "System Bottlenecks", "OOP Principles", "Error Handling"],
-      duration: "30 Min Live Assessment"
+      category: "Engineering",
+      icon: <FiTerminal className="w-6 h-6 text-slate-800" />,
+      desc: "Data structures, runtime complexity, object-oriented design patterns, and debugging.",
+      questions: "10 Technical Questions",
+      duration: "30 Mins"
     },
     {
-      title: "Data Analytics & Business Intelligence",
+      title: "Data Analytics & SQL",
       slug: "data-analyst",
-      category: "data",
-      icon: <FiDatabase className="text-emerald-600" />,
-      badge: "Verified Benchmark",
-      desc: "Complex SQL multi-table joins, Pandas transformations, data cleaning pipelines, and statistical analysis.",
-      topics: ["Advanced SQL", "Python / Pandas", "ETL Hygiene", "Data Storytelling"],
-      duration: "30 Min Live Assessment"
+      category: "Data Science",
+      icon: <FiDatabase className="w-6 h-6 text-emerald-600" />,
+      desc: "Advanced multi-table joins, Pandas transformations, data cleaning, and statistical metrics.",
+      questions: "10 Technical Questions",
+      duration: "30 Mins"
     },
     {
-      title: "Social Media & Digital Marketing",
+      title: "Social Media & Growth Marketing",
       slug: "social-media-marketing",
-      category: "marketing",
-      icon: <FiTrendingUp className="text-rose-600" />,
-      badge: "Growth Track",
-      desc: "Campaign metrics (CTR/ROAS), viral hook mechanics, audience segmentation, copy logic and brand growth strategy.",
-      topics: ["Performance Ads", "Funnel Strategy", "Retention Metrics", "Content Logic"],
-      duration: "30 Min Live Assessment"
-    },
-    {
-      title: "Performance Marketing & Growth SEO",
-      slug: "growth-marketing-seo",
-      category: "marketing",
-      icon: <FiActivity className="text-amber-600" />,
-      badge: "Scale Focus",
-      desc: "Search intent algorithms, technical SEO hygiene, Google Ads conversion tracking, and CAC optimization.",
-      topics: ["Technical SEO", "Google Ads / Meta", "CRO & Analytics", "Keyword Mapping"],
-      duration: "30 Min Live Assessment"
+      category: "Marketing",
+      icon: <FiTrendingUp className="w-6 h-6 text-rose-600" />,
+      desc: "Funnel design, CAC/ROAS metrics, conversion optimization, and growth campaign strategy.",
+      questions: "10 Scenario Questions",
+      duration: "30 Mins"
     },
     {
       title: "UI/UX & Product Design",
       slug: "ui-ux-design",
-      category: "design",
-      icon: <FiLayout className="text-purple-600" />,
-      badge: "Design Fellowship",
-      desc: "Design system scalability, Figma components, typography hierarchy, user journey friction diagnosis and UX audits.",
-      topics: ["Design Systems", "Usability Heuristics", "Wireframing", "Figma Auto-layout"],
-      duration: "30 Min Live Assessment"
+      category: "Design",
+      icon: <FiLayout className="w-6 h-6 text-purple-600" />,
+      desc: "Design system architecture, user journeys, responsive heuristics, and Figma prototypes.",
+      questions: "10 Practical Questions",
+      duration: "30 Mins"
     }
   ];
 
-  const filteredTracks =
-    activeTab === "all"
-      ? assessmentTracks
-      : assessmentTracks.filter((t) => t.category === activeTab);
-
   return (
-    <div className="min-h-screen bg-[#FBFBFC] text-[#0F172A] font-sans antialiased selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
-      {/* Background Dot Texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-40"
-        style={{
-          backgroundImage: "radial-gradient(#CBD5E1 1px, transparent 1px)",
-          backgroundSize: "24px 24px"
-        }}
-      />
-
-      {/* Top Corporate Status Ribbon */}
-      <div className="relative z-30 bg-white border-b border-slate-200 py-2 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-600 gap-1 sm:gap-0">
-          <div className="flex items-center space-x-2 text-center sm:text-left">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-semibold text-slate-900">InternAdda Assessment Gateway</span>
-            <span className="hidden sm:inline text-slate-400">•</span>
-            <span className="hidden sm:inline">Certified Technical Competency Evaluation</span>
+    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-600 selection:text-white">
+      {/* Top Banner */}
+      <div className="bg-slate-900 text-slate-300 py-2.5 px-4 text-xs">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="font-medium text-white">InternAdda Technical Assessment Portal</span>
+            <span className="text-slate-500">•</span>
+            <span>Official Hiring Assessment Partner of UpForge</span>
           </div>
-          <div className="flex items-center space-x-3 font-mono text-[11px]">
-            <span className="text-slate-800 font-bold">{verifiedCount.toLocaleString()} Verified Tests</span>
-            <span className="text-slate-300">|</span>
-            <span className="text-slate-500 font-sans">Official Partner: UpForge</span>
+          <div className="text-slate-400 font-mono text-[11px]">
+            Domain: internadda.com | ISO 9001 Aligned
           </div>
         </div>
       </div>
 
-      {/* Mobile-Ready Navigation */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <img src="/logo.jpg" alt="InternAdda" className="h-9 w-auto rounded-lg object-contain shadow-xs border border-slate-200" />
-            <div className="h-5 w-[1px] bg-slate-200"></div>
-            <img src="/upforge.jpg" alt="UpForge Partner" className="h-7 w-auto rounded object-contain" />
+      {/* Navbar */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <img
+              src="/logo.jpg"
+              alt="InternAdda"
+              className="h-10 w-auto rounded-lg object-contain border border-slate-200 shadow-sm"
+            />
+            <div className="h-6 w-[1px] bg-slate-200"></div>
+            <img
+              src="/upforge.jpg"
+              alt="UpForge"
+              className="h-8 w-auto rounded object-contain"
+            />
           </div>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center space-x-8 text-xs sm:text-sm font-semibold text-slate-600">
-            <a href="#tracks" className="hover:text-slate-900 transition">Assessment Tracks</a>
-            <a href="#proctor" className="hover:text-slate-900 transition">Integrity & Camera</a>
-            <a href="#evaluation" className="hover:text-slate-900 transition">How It Works</a>
+          <nav className="hidden md:flex items-center space-x-8 text-sm font-semibold text-slate-600">
+            <a href="#tracks" className="hover:text-blue-600 transition">Assessment Tracks</a>
+            <a href="#proctoring" className="hover:text-blue-600 transition">Integrity & Proctoring</a>
+            <a href="#methodology" className="hover:text-blue-600 transition">Evaluation System</a>
           </nav>
 
-          <div className="hidden sm:flex items-center space-x-3">
+          <div className="hidden md:flex items-center space-x-3">
             <button
               onClick={() => {
                 document.getElementById("tracks")?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold shadow-sm transition active:scale-95 flex items-center space-x-2"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm transition"
             >
-              <span>Choose Assessment</span>
-              <FiArrowRight />
+              Start Assessment
             </button>
           </div>
 
-          {/* Mobile Hamburger Button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition"
-              aria-label="Toggle Menu"
-            >
-              {menuOpen ? <FiX className="w-6 h-6" /> : <FiMenu className="w-6 h-6" />}
-            </button>
-          </div>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+          >
+            {mobileMenuOpen ? <FiX className="w-6 h-6" /> : <FiMenu className="w-6 h-6" />}
+          </button>
         </div>
 
-        {/* Mobile Dropdown Drawer */}
-        {menuOpen && (
-          <div className="md:hidden bg-white border-b border-slate-200 px-5 py-4 space-y-3 shadow-lg">
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-b border-slate-200 px-6 py-4 space-y-3">
             <a
               href="#tracks"
-              onClick={() => setMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700 py-1"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-sm font-semibold text-slate-700"
             >
               Assessment Tracks
             </a>
             <a
-              href="#proctor"
-              onClick={() => setMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700 py-1"
+              href="#proctoring"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-sm font-semibold text-slate-700"
             >
-              Proctoring Standards
-            </a>
-            <a
-              href="#evaluation"
-              onClick={() => setMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700 py-1"
-            >
-              Evaluation Process
+              Integrity System
             </a>
             <button
               onClick={() => {
-                setMenuOpen(false);
+                setMobileMenuOpen(false);
                 document.getElementById("tracks")?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="w-full py-3 bg-blue-600 text-white text-xs font-bold rounded-xl shadow transition"
+              className="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-bold"
             >
-              Select Your Assessment Track
+              Select Your Track
             </button>
           </div>
         )}
       </header>
 
       {/* Hero Section */}
-      <main className="relative z-10">
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-12 pb-16 sm:pt-20 sm:pb-24">
-          <div className="max-w-3xl mx-auto text-center space-y-5">
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 shadow-xs text-xs font-semibold text-slate-800">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
-              <span>2026 Structured Candidate Assessment</span>
+      <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
+              <FiAward className="text-blue-600" />
+              <span>Certified Candidate Examination Framework</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.18]">
-              Validate Real Skill. <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                Get Directly Evaluated.
-              </span>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+              Validated Technical Skill. <br />
+              <span className="text-blue-600">Direct Recruiter Credibility.</span>
             </h1>
 
-            <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
-              Experience InternAdda’s standardized 30-minute terminal challenge. Real-time coding, practical scenario questions, and live webcam monitoring that prove candidate capability beyond paper resumes.
+            <p className="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed">
+              Complete InternAdda’s 30-minute terminal assessment. Real-time technical cross-examination based on your actual resume projects with hardware webcam proctoring.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
               <button
                 onClick={() => {
                   document.getElementById("tracks")?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-md transition flex items-center justify-center space-x-2 active:scale-95"
+                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center space-x-2"
               >
-                <span>Browse All Assessment Tracks</span>
+                <span>Select Assessment Track</span>
                 <FiArrowRight />
               </button>
               <a
-                href="#proctor"
-                className="w-full sm:w-auto px-6 py-3.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl transition text-center shadow-xs"
+                href="#proctoring"
+                className="px-7 py-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl text-center transition"
               >
-                Proctoring Guidelines
+                Integrity Rules
               </a>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="pt-8 grid grid-cols-3 gap-2 sm:gap-6 border-t border-slate-200 mt-6 max-w-xl mx-auto">
-              <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200">
-                <div className="text-lg sm:text-2xl font-black text-slate-900">30 Min</div>
-                <div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">Focused Test</div>
+            <div className="pt-8 border-t border-slate-200 grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-2xl font-black text-slate-900">30 Min</div>
+                <div className="text-xs text-slate-500 mt-0.5">Strict Exam Window</div>
               </div>
-              <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200">
-                <div className="text-lg sm:text-2xl font-black text-slate-900">10 Qs</div>
-                <div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">Hard Logic</div>
+              <div>
+                <div className="text-2xl font-black text-slate-900">10 Qs</div>
+                <div className="text-xs text-slate-500 mt-0.5">Role-Specific Logic</div>
               </div>
-              <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200">
-                <div className="text-lg sm:text-2xl font-black text-blue-600 font-mono">100%</div>
-                <div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">Honest Score</div>
+              <div>
+                <div className="text-2xl font-black text-blue-600 font-mono">₹29.00</div>
+                <div className="text-xs text-slate-500 mt-0.5">Operational Evaluation Fee</div>
               </div>
             </div>
           </div>
-        </section>
 
-        {/* Tracks Section */}
-        <section id="tracks" className="py-16 bg-white border-y border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
-              <span className="text-[11px] font-bold text-blue-600 uppercase tracking-widest">
-                Job Ready Portfolios
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900">
-                Available Assessment Tracks
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600">
-                Questions are synthesized dynamically from the exact skills and projects on your resume.
-              </p>
+          {/* Hero Feature Card */}
+          <div className="lg:col-span-5">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 sm:p-8 shadow-lg space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Assessment Overview
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Active System
+                </span>
+              </div>
 
-              {/* Filter Tabs */}
-              <div className="flex flex-wrap justify-center gap-1.5 pt-4">
-                {[
-                  { id: "all", label: "All Tracks" },
-                  { id: "tech", label: "Engineering & Dev" },
-                  { id: "data", label: "Data & Analytics" },
-                  { id: "marketing", label: "Growth & Marketing" },
-                  { id: "design", label: "UI/UX Product" }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition ${
-                      activeTab === tab.id
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              <div className="space-y-4 text-xs">
+                <div className="p-4 rounded-xl bg-white border border-slate-200">
+                  <div className="font-bold text-slate-900">No Complex Voice Audio</div>
+                  <p className="text-slate-600 mt-1">
+                    Direct terminal-style command buffer. Type your answers, logic, or code blocks without microphone latency.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-white border border-slate-200">
+                  <div className="font-bold text-slate-900">Live Hardware Facial Stream</div>
+                  <p className="text-slate-600 mt-1">
+                    Active camera monitoring with tab-blur protection. 3 window switches automatically locks the assessment.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex justify-between items-center">
+                  <span className="font-semibold">Evaluation & GPU Fee:</span>
+                  <span className="font-mono font-bold">₹29 Flat</span>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {filteredTracks.map((track, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => navigate(`/test/${track.slug}`)}
-                  className="group bg-[#FBFBFC] hover:bg-white border border-slate-200 hover:border-blue-500 rounded-2xl p-6 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                        {track.icon}
-                      </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                        {track.badge}
-                      </span>
-                    </div>
+      {/* Assessment Tracks */}
+      <section id="tracks" className="py-16 bg-slate-50 border-y border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
+            <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+              Available Tracks
+            </span>
+            <h2 className="text-3xl font-extrabold text-slate-900">
+              Select Your Assessment Track
+            </h2>
+            <p className="text-sm text-slate-600">
+              Your 10 challenge questions are generated strictly from the domain and the uploaded resume.
+            </p>
+          </div>
 
-                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition">
-                      {track.title}
-                    </h3>
-                    <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                      {track.desc}
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-1.5">
-                      {track.topics.map((topic, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 text-[10px] font-medium rounded-md"
-                        >
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs font-semibold">
-                    <span className="text-slate-500 font-mono text-[11px]">{track.duration}</span>
-                    <span className="text-blue-600 font-bold flex items-center group-hover:translate-x-1 transition">
-                      Enter Challenge <FiArrowRight className="ml-1" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tracks.map((track, i) => (
+              <div
+                key={i}
+                onClick={() => navigate(`/test/${track.slug}`)}
+                className="bg-white border border-slate-200 hover:border-blue-500 rounded-2xl p-6 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="p-2 rounded-xl bg-slate-100">{track.icon}</div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      {track.category}
                     </span>
                   </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 hover:text-blue-600 transition">
+                    {track.title}
+                  </h3>
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                    {track.desc}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
 
-        {/* Proctor & Integrity Section */}
-        <section id="proctor" className="py-16 bg-[#F8FAFC]">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-4">
-            <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
-              Live Hardware Proctoring
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Integrity Guaranteed for Hiring Partners
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto">
-              Our automated system monitors facial presence and browser window activity. Three window switches permanently voids the session.
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
+                  <span className="text-slate-500 font-mono text-[11px]">{track.duration}</span>
+                  <span className="text-blue-600 font-bold flex items-center">
+                    Enter Track <FiArrowRight className="ml-1" />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Proctoring Section */}
+      <section id="proctoring" className="py-16 max-w-5xl mx-auto px-4 sm:px-8 text-center space-y-4">
+        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+          Integrity Guarantee
+        </span>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+          Strict Anti-Cheating Protocols
+        </h2>
+        <p className="text-sm text-slate-600 max-w-xl mx-auto">
+          Every session is monitored via local hardware webcam and single-window lock. 3 tab-switches permanently terminates the attempt.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 text-left">
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+            <FiShield className="w-8 h-8 text-blue-600 mb-3" />
+            <h4 className="text-sm font-bold text-slate-900">Webcam Hardware Eye</h4>
+            <p className="text-xs text-slate-600 mt-1">
+              Maintains candidate presence throughout the 30-minute proctored window.
             </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 text-left">
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                <FiShield className="w-7 h-7 text-blue-600 mb-3" />
-                <h4 className="text-sm font-bold text-slate-900">Local Hardware Cam</h4>
-                <p className="text-xs text-slate-600 mt-1">Real-time candidate eye and facial presence tracking.</p>
-              </div>
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                <FiLock className="w-7 h-7 text-indigo-600 mb-3" />
-                <h4 className="text-sm font-bold text-slate-900">3-Strike Window Guard</h4>
-                <p className="text-xs text-slate-600 mt-1">Zero tab switching allowed during the active 30 minutes.</p>
-              </div>
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                <FiAward className="w-7 h-7 text-emerald-600 mb-3" />
-                <h4 className="text-sm font-bold text-slate-900">Direct Recruiter Ledger</h4>
-                <p className="text-xs text-slate-600 mt-1">Clean verified report delivered for UpForge candidate matching.</p>
-              </div>
-            </div>
           </div>
-        </section>
-      </main>
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+            <FiCheckCircle className="w-8 h-8 text-emerald-600 mb-3" />
+            <h4 className="text-sm font-bold text-slate-900">3-Strike Window Enforcer</h4>
+            <p className="text-xs text-slate-600 mt-1">
+              Window blur detection triggers warnings. 3 strikes voids the assessment.
+            </p>
+          </div>
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+            <FiAward className="w-8 h-8 text-indigo-600 mb-3" />
+            <h4 className="text-sm font-bold text-slate-900">Verified Recruiter Report</h4>
+            <p className="text-xs text-slate-600 mt-1">
+              1-10 evaluation breakdown indexed directly for hiring managers.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-10 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
-            <img src="/logo.jpg" alt="Logo" className="h-6 w-auto rounded object-contain" />
+            <img src="/logo.jpg" alt="Logo" className="h-7 w-auto rounded object-contain" />
             <span className="font-semibold text-slate-800">InternAdda Careers</span>
             <span>•</span>
             <span>Hiring Ecosystem Partner of UpForge</span>
           </div>
-
           <div className="flex items-center space-x-4">
-            <span>ISO 9001 Aligned</span>
-            <span>•</span>
-            <span>All Rights Reserved 2026</span>
+            <span>© 2026 internadda.com. All rights reserved.</span>
             <button
               onClick={() => navigate("/login")}
-              className="text-slate-300 hover:text-slate-600 font-mono text-xs"
-              title="Admin Portal"
+              className="text-slate-400 hover:text-slate-700 font-mono"
             >
-              ⚙
+              Admin
             </button>
           </div>
         </div>
