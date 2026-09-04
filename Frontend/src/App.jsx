@@ -1,12 +1,13 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
-import CreateSession from "./pages/CreateSession";
+import AssessmentGateway from "./pages/AssessmentGateway";
+import TerminalRoom from "./pages/TerminalRoom";
 import SessionReport from "./pages/SessionReport";
-import InterviewLanding from "./pages/InterviewLanding";
-import InterviewRoom from "./pages/InterviewRoom";
+import VerifyPayment from "./pages/VerifyPayment";
 
 function AdminRoute({ children }) {
   const { isAdmin } = useAuth();
@@ -18,23 +19,22 @@ export default function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* High-Converting Corporate Landing Page */}
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
 
-          {/* Admin Routes - Protected by hardcoded Master Key */}
+          {/* Universal Assessment Link for Candidates */}
+          <Route path="/test/:role" element={<AssessmentGateway />} />
+          <Route path="/test" element={<AssessmentGateway />} />
+          <Route path="/room/:sessionId" element={<TerminalRoom />} />
+          <Route path="/verify-payment" element={<VerifyPayment />} />
+
+          {/* Super Secret Admin Dashboard */}
           <Route
             path="/admin"
             element={
               <AdminRoute>
                 <AdminDashboard />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/create"
-            element={
-              <AdminRoute>
-                <CreateSession />
               </AdminRoute>
             }
           />
@@ -47,11 +47,7 @@ export default function App() {
             }
           />
 
-          {/* Candidate Direct Routes - No Login, Direct Link Access */}
-          <Route path="/interview/:sessionId" element={<InterviewLanding />} />
-          <Route path="/interview/:sessionId/start" element={<InterviewRoom />} />
-
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
