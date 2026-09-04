@@ -15,8 +15,3 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-
-
-fetch("https://upforge-ai-interviewer-backend.onrender.com")
-  .catch(() => {});
