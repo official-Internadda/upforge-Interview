@@ -17,7 +17,7 @@ export default function AssessmentGateway() {
   const { role: rawRole } = useParams();
   const navigate = useNavigate();
 
-  const roleName = rawRole
+  const formattedRole = rawRole
     ? rawRole.replace(/-/g, " ").toUpperCase()
     : "SOFTWARE ENGINEER";
 
@@ -34,14 +34,14 @@ export default function AssessmentGateway() {
       setFile(selected);
       setError("");
     } else {
-      setError("Please select a valid text-based PDF file.");
+      setError("Please attach a valid PDF document.");
     }
   };
 
   const handleProceedPayment = async (e) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !phone.trim() || !file) {
-      setError("Please complete all candidate fields and attach your PDF resume.");
+      setError("Please fill all details and upload your PDF resume.");
       return;
     }
 
@@ -49,7 +49,7 @@ export default function AssessmentGateway() {
     setError("");
 
     try {
-      // 1. Parse Resume PDF
+      // 1. Upload & Parse PDF
       const formData = new FormData();
       formData.append("resume", file);
       const parseRes = await fetch(`${BACKEND}/parse-resume`, {
@@ -57,7 +57,7 @@ export default function AssessmentGateway() {
         body: formData,
       });
       const parseData = await parseRes.json();
-      if (!parseRes.ok) throw new Error(parseData.error || "Failed parsing resume PDF.");
+      if (!parseRes.ok) throw new Error(parseData.error || "Failed parsing PDF.");
 
       const resumeText = parseData.text;
       const sessionId = crypto.randomUUID();
@@ -70,20 +70,20 @@ export default function AssessmentGateway() {
           candidateName: name.trim(),
           candidateEmail: email.trim(),
           candidatePhone: phone.trim(),
-          role: roleName,
+          role: formattedRole,
         }),
       });
       const orderData = await orderRes.json();
       if (!orderRes.ok) throw new Error(orderData.error || "Payment gateway init failed.");
 
-      // 3. Store Session in Firestore
+      // 3. Save pending attempt
       await addDoc(collection(db, "sessions"), {
         sessionId,
         orderId: orderData.orderId,
         candidateName: name.trim(),
         candidateEmail: email.trim(),
         candidatePhone: phone.trim(),
-        role: roleName,
+        role: formattedRole,
         resumeText,
         paymentStatus: "PENDING",
         status: "payment_pending",
@@ -95,9 +95,9 @@ export default function AssessmentGateway() {
       localStorage.setItem("upforge_session_id", sessionId);
       localStorage.setItem("upforge_order_id", orderData.orderId);
 
-      // 4. Trigger Cashfree Checkout
+      // 4. Trigger Cashfree SDK
       if (!window.Cashfree) {
-        throw new Error("Cashfree SDK not loaded. Please refresh.");
+        throw new Error("Payment gateway SDK is loading. Please retry in 2 seconds.");
       }
 
       const cashfree = window.Cashfree({ mode: "production" });
@@ -107,111 +107,110 @@ export default function AssessmentGateway() {
       });
     } catch (err) {
       console.error(err);
-      setError(err.message || "An unexpected error occurred. Please try again.");
+      setError(err.message || "An error occurred. Please check network and try again.");
       setUploading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-[#0F172A] font-sans flex flex-col selection:bg-[#2563EB] selection:text-white">
-      {/* Top Bar */}
-      <header className="border-b border-[#E2E8F0] bg-white">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-[#FBFBFC] text-[#0F172A] font-sans flex flex-col selection:bg-blue-600 selection:text-white">
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center text-xs font-semibold text-[#64748B] hover:text-[#0F172A] transition"
+            className="flex items-center text-xs font-bold text-slate-600 hover:text-slate-900 transition"
           >
-            <FiArrowLeft className="mr-1.5" /> Back to Tracks
+            <FiArrowLeft className="mr-1.5" /> Back
           </button>
 
-          <div className="flex items-center space-x-3">
-            <img src="/logo.jpg" alt="InternAdda" className="h-7 w-auto rounded" />
-            <span className="text-xs text-[#CBD5E1]">|</span>
-            <img src="/upforge.jpg" alt="UpForge" className="h-6 w-auto rounded" />
+          <div className="flex items-center space-x-2">
+            <img src="/logo.jpg" alt="Logo" className="h-7 w-auto rounded object-contain" />
+            <span className="text-slate-300 text-xs">|</span>
+            <img src="/upforge.jpg" alt="Partner" className="h-6 w-auto rounded object-contain" />
           </div>
 
-          <span className="text-xs font-mono font-semibold text-[#059669] flex items-center">
-            <FiLock className="mr-1.5" /> 256-Bit SSL Encrypted
+          <span className="text-[11px] font-mono font-bold text-emerald-600 flex items-center">
+            <FiLock className="mr-1" /> SSL Secure
           </span>
         </div>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto px-6 py-12 w-full">
-        <div className="text-center mb-8 space-y-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
-            {roleName} Assessment
+      {/* Main Container */}
+      <main className="flex-1 max-w-xl mx-auto px-4 py-8 sm:py-12 w-full">
+        <div className="text-center mb-6 space-y-1.5">
+          <span className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+            {formattedRole}
           </span>
-          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-            Candidate Verification & Gateway
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+            Candidate Verification
           </h1>
-          <p className="text-sm text-[#475569]">
-            Submit your profile and initiate the 30-minute proctored technical terminal.
+          <p className="text-xs text-slate-500">
+            Provide details to initialize the hardware-proctored 30-min challenge.
           </p>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-3xl p-8 sm:p-10 shadow-xl space-y-6">
+        <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
           {error && (
-            <div className="p-3.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[#B91C1C] text-xs font-semibold">
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleProceedPayment} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-[#334155] block mb-1.5">
-                  Full Legal Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:outline-none focus:border-[#2563EB] transition"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#334155] block mb-1.5">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="rahul@example.com"
-                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:outline-none focus:border-[#2563EB] transition"
-                />
-              </div>
+          <form onSubmit={handleProceedPayment} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Full Legal Name
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Candidate Full Name"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+              />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#334155] block mb-1.5">
-                WhatsApp / Contact Number
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@gmail.com"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                WhatsApp / Phone Number
               </label>
               <input
                 type="tel"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="10-digit mobile number"
-                className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-4 py-3 text-sm text-[#0F172A] focus:outline-none focus:border-[#2563EB] transition"
+                placeholder="10-digit phone number"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#334155] block mb-1.5">
+              <label className="text-xs font-bold text-slate-700 block mb-1">
                 Upload Resume (PDF only)
               </label>
-              <label className="border-2 border-dashed border-[#CBD5E1] hover:border-[#2563EB] bg-[#F8FAFC] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition">
-                <FiUploadCloud className="w-8 h-8 text-[#2563EB] mb-2" />
-                <span className="text-xs font-bold text-[#0F172A]">
-                  {file ? file.name : "Select your PDF resume"}
+              <label className="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition">
+                <FiUploadCloud className="w-8 h-8 text-blue-600 mb-1.5" />
+                <span className="text-xs font-bold text-slate-800 text-center truncate max-w-xs">
+                  {file ? file.name : "Attach Resume (PDF)"}
                 </span>
-                <span className="text-[11px] text-[#64748B] mt-1">
-                  10 Technical Questions will be derived from your past projects
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  Interview questions will be extracted from your real work
                 </span>
                 <input
                   type="file"
@@ -222,42 +221,42 @@ export default function AssessmentGateway() {
               </label>
             </div>
 
-            {/* Price Transparency */}
-            <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-              <div className="flex justify-between text-xs text-[#64748B]">
-                <span>Cloud AI GPU Proctoring Fee</span>
-                <span>₹29.00</span>
+            {/* Fee summary */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Evaluation Server Fee</span>
+                <span>₹1.00</span>
               </div>
-              <div className="flex justify-between text-xs text-[#64748B]">
-                <span>UpForge Hiring Registry Archival</span>
-                <span className="text-[#059669] font-bold">100% Free</span>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Direct UpForge Talent Indexing</span>
+                <span className="text-emerald-600 font-bold">Included</span>
               </div>
-              <div className="border-t border-[#E2E8F0] pt-2 flex justify-between text-sm font-extrabold text-[#0F172A]">
-                <span>Total Due:</span>
-                <span className="text-[#2563EB] font-mono">₹29.00</span>
+              <div className="border-t border-slate-200 pt-1.5 flex justify-between text-sm font-black text-slate-900">
+                <span>Payable Amount:</span>
+                <span className="text-blue-600 font-mono">₹1.00</span>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={uploading}
-              className="w-full py-4 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-bold rounded-xl text-sm transition shadow-[0_10px_20px_-5px_rgba(37,99,235,0.3)] flex items-center justify-center space-x-2 active:scale-95"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition shadow-md shadow-blue-500/20 active:scale-95"
             >
               {uploading ? (
-                <span>Verifying PDF & Initializing Cashfree...</span>
+                <span>Parsing PDF & Connecting Gateway...</span>
               ) : (
-                <span>Pay ₹29 & Enter Proctored Terminal</span>
+                <span>Proceed with ₹1 & Launch Assessment</span>
               )}
             </button>
           </form>
 
-          <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-center space-x-6 text-xs text-[#64748B]">
+          <div className="pt-2 flex items-center justify-center space-x-4 text-[11px] text-slate-500">
             <span className="flex items-center">
-              <FiShield className="mr-1.5 text-[#2563EB]" /> Camera Proctored
+              <FiShield className="mr-1 text-blue-600" /> Webcam Proctored
             </span>
             <span>•</span>
             <span className="flex items-center">
-              <FiCheckCircle className="mr-1.5 text-[#059669]" /> Cashfree Verified
+              <FiCheckCircle className="mr-1 text-emerald-600" /> Cashfree Checkout
             </span>
           </div>
         </div>
