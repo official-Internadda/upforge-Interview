@@ -22,32 +22,60 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Dynamic model selector to ensure it never throws model_not_found
-async function getWorkingModel() {
-  try {
-    const list = await groq.models.list();
-    const available = list.data.map((m) => m.id);
-    console.log("Available Groq models on this key:", available);
+// Models confirmed active on your Groq key
+const CHAT_MODELS = [
+  "qwen/qwen3.8-27b",
+  "qwen/qwen3.6-27b",
+  "groq/compound-mini",
+  "groq/compound",
+];
 
-    // Preferred hierarchy of models
-    const preferred = [
-      "llama-3.1-8b-instant",
-      "llama3-8b-8192",
-      "mixtral-8x7b-32768",
-      "gemma2-9b-it",
-      "llama-3.3-70b-versatile",
-    ];
+// Helper to run chat completions safely across available models
+async function runGroqChat(messages, maxTokens = 300, temperature = 0.7) {
+  let lastError = null;
+  for (const model of CHAT_MODELS) {
+    try {
+      const response = await groq.chat.completions.create({
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      });
 
-    for (const p of preferred) {
-      if (available.includes(p)) return p;
+      let reply = response.choices?.[0]?.message?.content || "";
+
+      // Clean tool call artifacts if model wraps in JSON
+      if (!reply && response.choices?.[0]?.message?.tool_calls?.length) {
+        const toolCall = response.choices[0].message.tool_calls[0];
+        try {
+          const parsed = JSON.parse(toolCall.function.arguments);
+          reply = parsed.text || parsed.message || parsed.reply || Object.values(parsed)[0];
+        } catch {
+          reply = toolCall.function.arguments;
+        }
+      }
+
+      if (reply) {
+        return { reply, modelUsed: model };
+      }
+    } catch (err) {
+      console.warn(`Model ${model} failed:`, err?.message || err);
+      // If error contains failed_generation, extract reply text directly
+      if (err?.error?.failed_generation) {
+        try {
+          const raw = err.error.failed_generation;
+          const match = raw.match(/arguments":\s*"([^"]+)"/) || raw.match(/arguments":\s*\{[^}]*"text":\s*"([^"]+)"/);
+          if (match && match[1]) {
+            return { reply: match[1], modelUsed: model };
+          }
+        } catch (parseErr) {
+          console.error("Failed extracting generation from error:", parseErr);
+        }
+      }
+      lastError = err;
     }
-
-    // If none of preferred matched, pick first active chat model
-    return available[0] || "mixtral-8x7b-32768";
-  } catch (e) {
-    console.error("Failed fetching model list, falling back to mixtral-8x7b-32768:", e);
-    return "mixtral-8x7b-32768";
   }
+  throw lastError || new Error("All models failed to respond.");
 }
 
 // PDF Parser
@@ -100,43 +128,34 @@ app.post("/chat", async (req, res) => {
     senior: "4+ years of experience",
   };
 
-  const safeResume = resumeText || "No resume uploaded. Ask direct role questions.";
+  const safeResume = resumeText || "No resume provided. Ask general technical questions for the role.";
 
   const systemPrompt = `You are a professional technical interviewer conducting a real job interview for the role of "${role}" (${
     levelDescriptions[experienceLevel] || experienceLevel || "mid"
-  }). You have access to the candidate's resume:
+  }).
+You have access to the candidate's resume:
 === RESUME START ===
 ${safeResume}
 === RESUME END ===
 
-Your interviewing rules:
-1. Ask ONLY ONE question at a time. Never ask two questions together.
-2. Start by greeting the candidate briefly and asking about their background or a specific project on their resume.
-3. After each answer, either ask a follow-up to go deeper OR move to a new topic — based on how complete the answer was.
-4. If an answer is shallow or vague, probe further ("Can you elaborate on that?", "What was your specific role in that?").
-5. Cover a mix of: resume-based questions, technical knowledge for the role, problem-solving, and one behavioral question.
-6. Keep your questions concise — one or two sentences max.
-7. Do NOT give feedback on answers during the interview. Stay neutral.
-8. Do NOT reveal you are an AI. Act as a human interviewer.
-9. After 8-10 questions, wrap up naturally by saying "That's all the questions I have. Thank you for your time today — we'll be in touch soon." and then add exactly: [INTERVIEW_COMPLETE]
-10. Never repeat a question already asked.`;
+Rules:
+1. Output plain conversational text only. Do not call functions, tools, or output JSON format.
+2. Ask ONLY ONE question at a time.
+3. Greet candidate briefly and ask about their resume background/project.
+4. Keep questions concise (1-2 sentences).
+5. After 8-10 questions, wrap up with: "That's all the questions I have. Thank you for your time today — we'll be in touch soon." followed by [INTERVIEW_COMPLETE].
+6. Never repeat a question.`;
 
   try {
-    const activeModel = await getWorkingModel();
-    const response = await groq.chat.completions.create({
-      model: activeModel,
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      temperature: 0.7,
-      max_tokens: 300,
-    });
+    const chatMessages = [{ role: "system", content: systemPrompt }, ...messages];
+    const { reply } = await runGroqChat(chatMessages, 300, 0.7);
 
-    const reply = response.choices[0].message.content;
     const isComplete = reply.includes("[INTERVIEW_COMPLETE]");
     const cleanReply = reply.replace("[INTERVIEW_COMPLETE]", "").trim();
 
     res.json({ reply: cleanReply, isComplete });
   } catch (err) {
-    console.error("Groq chat error:", err);
+    console.error("Final Groq chat failure:", err);
     res.status(500).json({ error: "AI failed to respond. Try again." });
   }
 });
@@ -153,38 +172,30 @@ app.post("/generate-report", async (req, res) => {
     .map((m) => `${m.role === "assistant" ? "Interviewer" : "Candidate"}: ${m.content}`)
     .join("\n");
 
-  const reportPrompt = `You are a senior hiring manager. You just reviewed a job interview for the role of "${role}" (${experienceLevel} level) with candidate "${candidateName}".
-Here is the full interview transcript:
+  const reportPrompt = `You are a senior hiring manager reviewing a job interview for "${role}" (${experienceLevel} level) with candidate "${candidateName}".
+Here is the interview transcript:
 === TRANSCRIPT START ===
 ${conversationText}
 === TRANSCRIPT END ===
 
-Based on this interview, generate a detailed evaluation report in the following exact JSON format. Return ONLY the JSON, no extra text:
+Generate an evaluation report in this exact JSON structure (only JSON, no surrounding text):
 {
-  "overallScore": <number 1-10>,
-  "recommendation": "<Strongly Recommend | Recommend | Neutral | Do Not Recommend>",
-  "summary": "<2-3 sentence overall summary of the candidate>",
-  "technicalScore": <number 1-10>,
-  "communicationScore": <number 1-10>,
-  "confidenceScore": <number 1-10>,
-  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "weaknesses": ["<weakness 1>", "<weakness 2>"],
-  "topicsCovered": ["<topic 1>", "<topic 2>", "<topic 3>"],
-  "detailedFeedback": "<4-5 sentences of detailed honest feedback about the candidate's performance>",
-  "hiringNotes": "<1-2 sentences of notes specifically for the hiring team>"
+  "overallScore": 8,
+  "recommendation": "Recommend",
+  "summary": "Candidate showed strong foundational skills.",
+  "technicalScore": 8,
+  "communicationScore": 8,
+  "confidenceScore": 7,
+  "strengths": ["Skill 1", "Skill 2"],
+  "weaknesses": ["Area 1", "Area 2"],
+  "topicsCovered": ["Topic 1", "Topic 2"],
+  "detailedFeedback": "Candidate answered questions clearly and demonstrated practical knowledge.",
+  "hiringNotes": "Suitable for next interview round."
 }`;
 
   try {
-    const activeModel = await getWorkingModel();
-    const response = await groq.chat.completions.create({
-      model: activeModel,
-      messages: [{ role: "user", content: reportPrompt }],
-      temperature: 0.3,
-      max_tokens: 1000,
-    });
-
-    const raw = response.choices[0].message.content;
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const { reply } = await runGroqChat([{ role: "user", content: reportPrompt }], 1000, 0.3);
+    const jsonMatch = reply.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
 
     const report = JSON.parse(jsonMatch[0]);
@@ -195,7 +206,6 @@ Based on this interview, generate a detailed evaluation report in the following 
   }
 });
 
-// Health Check
 app.get("/", (req, res) => res.json({ status: "Backend running 🚀" }));
 
 const PORT = process.env.PORT || 8080;
