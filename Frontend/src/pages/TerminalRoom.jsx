@@ -31,7 +31,7 @@ export default function TerminalRoom() {
   const [isTerminated, setIsTerminated] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
-  const [redirectCountdown, setRedirectCountdown] = useState(10);
+  const [redirectCountdown, setRedirectCountdown] = useState(30); // 30 Seconds Countdown
 
   // Proctoring States
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -166,7 +166,7 @@ export default function TerminalRoom() {
     }
   }
 
-  // 10-Second Auto-Redirect to upforge.org on Completion
+  // 30-Second Auto-Redirect to upforge.org on Completion
   useEffect(() => {
     if (!isComplete) return;
 
