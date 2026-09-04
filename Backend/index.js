@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import dotenv from "dotenv";
+import axios from "axios";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import Groq from "groq-sdk";
 
@@ -10,6 +11,11 @@ dotenv.config();
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// Cashfree Production Credentials
+const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || "11077281f181acdf5262a38723e8277011";
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || "cfsk_ma_prod_07a74006fac339b18a4b690c5b9f68b9_2e31571c";
+const CASHFREE_BASE_URL = "https://api.cashfree.com/pg"; // Production Endpoint
 
 app.use(
   cors({
@@ -29,9 +35,8 @@ const CHAT_MODELS = [
   "groq/compound",
 ];
 
-async function runGroqChat(messages, maxTokens = 350, temperature = 0.6) {
+async function runGroqChat(messages, maxTokens = 400, temperature = 0.5) {
   let lastError = null;
-
   for (const model of CHAT_MODELS) {
     try {
       const response = await groq.chat.completions.create({
@@ -42,7 +47,6 @@ async function runGroqChat(messages, maxTokens = 350, temperature = 0.6) {
       });
 
       let reply = response.choices?.[0]?.message?.content || "";
-
       if (!reply && response.choices?.[0]?.message?.tool_calls?.length) {
         const toolCall = response.choices[0].message.tool_calls[0];
         try {
@@ -53,29 +57,84 @@ async function runGroqChat(messages, maxTokens = 350, temperature = 0.6) {
         }
       }
 
-      if (reply) {
-        return { reply, modelUsed: model };
-      }
+      if (reply) return { reply, modelUsed: model };
     } catch (err) {
-      console.warn(`Model ${model} failed:`, err?.message || err);
-      if (err?.error?.failed_generation) {
-        try {
-          const raw = err.error.failed_generation;
-          const match = raw.match(/arguments":\s*"([^"]+)"/) || raw.match(/arguments":\s*\{[^}]*"text":\s*"([^"]+)"/);
-          if (match && match[1]) {
-            return { reply: match[1], modelUsed: model };
-          }
-        } catch (parseErr) {
-          console.error("Failed extracting generation from error:", parseErr);
-        }
-      }
+      console.warn(`Model ${model} error:`, err?.message || err);
       lastError = err;
     }
   }
-  throw lastError || new Error("All models failed to respond.");
+  throw lastError || new Error("All AI models failed to respond.");
 }
 
-// PDF Parser
+// ---------------- CASHFREE PAYMENT ROUTES ---------------- //
+app.post("/create-order", async (req, res) => {
+  const { candidateName, candidateEmail, candidatePhone, role } = req.body;
+
+  if (!candidateName || !candidateEmail) {
+    return res.status(400).json({ error: "Candidate details required." });
+  }
+
+  const orderId = "UPFORGE_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+  const payload = {
+    order_id: orderId,
+    order_amount: 29.0,
+    order_currency: "INR",
+    customer_details: {
+      customer_id: "CUST_" + Date.now(),
+      customer_name: candidateName.trim(),
+      customer_email: candidateEmail.trim(),
+      customer_phone: candidatePhone?.trim() || "9999999999",
+    },
+    order_meta: {
+      return_url: `${req.headers.origin || "https://interview.internadda.com"}/verify-payment?order_id={order_id}`,
+    },
+    order_note: `AI Evaluation Fee for ${role || "Interview"}`,
+  };
+
+  try {
+    const response = await axios.post(`${CASHFREE_BASE_URL}/orders`, payload, {
+      headers: {
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01",
+        "Content-Type": "application/json",
+      },
+    });
+
+    res.json({
+      orderId,
+      paymentSessionId: response.data.payment_session_id,
+      amount: 29,
+    });
+  } catch (error) {
+    console.error("Cashfree Order Create Error:", error?.response?.data || error.message);
+    res.status(500).json({ error: "Failed to initiate payment gateway." });
+  }
+});
+
+app.post("/verify-order", async (req, res) => {
+  const { orderId } = req.body;
+  if (!orderId) return res.status(400).json({ error: "Order ID is required" });
+
+  try {
+    const response = await axios.get(`${CASHFREE_BASE_URL}/orders/${orderId}`, {
+      headers: {
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01",
+      },
+    });
+
+    const isPaid = response.data.order_status === "PAID";
+    res.json({ success: isPaid, orderDetails: response.data });
+  } catch (error) {
+    console.error("Cashfree Verify Error:", error?.response?.data || error.message);
+    res.status(500).json({ error: "Failed to verify transaction." });
+  }
+});
+
+// ---------------- RESUME PDF EXTRACTOR ---------------- //
 async function extractTextFromPDF(buffer) {
   const uint8Array = new Uint8Array(buffer);
   const pdf = await getDocument({ data: uint8Array }).promise;
@@ -91,135 +150,123 @@ async function extractTextFromPDF(buffer) {
   return fullText.trim();
 }
 
-// Resume Upload
 app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    if (!req.file) return res.status(400).json({ error: "No resume PDF uploaded" });
 
     const text = await extractTextFromPDF(req.file.buffer);
-    if (!text || text.length < 50) {
+    if (!text || text.length < 40) {
       return res.status(400).json({
-        error: "Could not extract text. Make sure it's not a scanned image.",
+        error: "Could not read text. Please ensure it is not a scanned photo PDF.",
       });
     }
 
     res.json({ text });
   } catch (err) {
     console.error("PDF parse error:", err);
-    res.status(500).json({ error: "Failed to parse PDF." });
+    res.status(500).json({ error: "Failed to parse resume PDF." });
   }
 });
 
-// Chat Engine with Tough Technical Interviewer Persona
+// ---------------- TERMINAL CHAT ENGINE ---------------- //
 app.post("/chat", async (req, res) => {
-  const { messages, resumeText, role, experienceLevel } = req.body;
+  const { messages, resumeText, role } = req.body;
 
   if (!role) {
-    return res.status(400).json({ error: "Missing required role." });
+    return res.status(400).json({ error: "Role is required." });
   }
 
-  const safeResume = resumeText || "No resume provided. Candidate is interviewing without prior context.";
+  const safeResume = resumeText || "General Candidate with no resume details provided.";
 
-  const systemPrompt = `You are a Principal Technical Interviewer conducting a demanding, realistic job interview for the role of "${role}" (${experienceLevel || "Mid-to-Senior"} level).
-You have full access to the candidate's resume:
-=== CANDIDATE RESUME ===
+  const systemPrompt = `You are a Principal Tech Architect conducting a rigorous, 10-Question Technical Terminal Assessment for the role of "${role}".
+Candidate Resume Context:
+=== RESUME ===
 ${safeResume}
 === END RESUME ===
 
-INTERVIEW GUIDELINES & PERSONA:
-1. Tone: Professional, articulate, rigorous, and direct. You are evaluating depth of experience, problem-solving under pressure, and architectural clarity.
-2. Structure:
-   - Question 1: Brief professional greeting, acknowledge their background, and ask a specific, challenging question about an actual project, tool, or metric mentioned in their resume.
-   - Subsequent Questions: Listen closely to their response. If their answer is generic or textbook, push deeper ("How did you handle race conditions in that system?", "What specific tradeoffs did you make?", "Can you quantify the latency reduction?").
-   - Challenge their claims: Do not merely nod along. Probe edge cases, failure scenarios, and scalability bottlenecks.
-   - Progress through: (1) Deep-dive into resume projects, (2) Real-world system design/problem scenario for the "${role}" position, (3) Edge-case troubleshooting, (4) One high-stakes leadership or conflict question.
-3. Strict Constraints:
-   - Always respond in plain conversational text. NO bullet points, NO Markdown headers, NO JSON formatting.
-   - Ask EXACTLY ONE question at a time. Never ask compound questions.
-   - Keep each turn crisp (maximum 2 to 3 sentences).
-   - Never validate their answers with praise like "Great answer!" or "Awesome!". Remain neutral ("Understood.", "Got it.", "Makes sense.").
-   - After 7 to 9 rigorous turns, gracefully conclude the session by saying exactly:
-     "Thank you for sharing your experience today. That completes our technical evaluation session. Our team will review the telemetry and follow up with you shortly." followed by [INTERVIEW_COMPLETE].`;
+OPERATIONAL INSTRUCTIONS:
+1. Conduct the assessment in a sleek CLI/Terminal persona. Output plain text directly.
+2. Ask exactly 10 questions sequentially.
+3. Every question must be deeply technical: test actual syntax, complex edge-cases, system bottlenecks, SQL/Python/DSA logic, or project architecture specifically listed on their resume.
+4. In Question 1: Greet the candidate coldly and professionally, identify a specific technical project/claim from their resume, and challenge them with a hard technical question.
+5. In Questions 2 to 9: Analyze the candidate's typed code/answer. If vague or superficial, point out the loophole and demand the exact logic/code. Never give multiple-choice hints.
+6. Ask EXACTLY ONE question at a time. Maximum 2 to 3 sentences per turn.
+7. Turn 10 Conclusion: When 10 questions are done, reply: "Terminal assessment concluded. Compiling technical telemetry and metrics." followed by [ASSESSMENT_COMPLETE].`;
 
   let chatMessages = [];
   if (!messages || messages.length === 0) {
     chatMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Hello, I am ready to begin the interview. Please introduce yourself and start with the first question." }
+      { role: "user", content: "TERMINAL_START: Candidate is connected and ready." }
     ];
   } else {
-    chatMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages
-    ];
+    chatMessages = [{ role: "system", content: systemPrompt }, ...messages];
     if (chatMessages[chatMessages.length - 1].role !== "user") {
-      chatMessages.push({ role: "user", content: "Please continue the interview based on my response." });
+      chatMessages.push({ role: "user", content: "Proceed with next evaluation prompt." });
     }
   }
 
   try {
-    const { reply } = await runGroqChat(chatMessages, 350, 0.65);
-
-    const isComplete = reply.includes("[INTERVIEW_COMPLETE]");
-    const cleanReply = reply.replace("[INTERVIEW_COMPLETE]", "").trim();
+    const { reply } = await runGroqChat(chatMessages, 350, 0.5);
+    const isComplete = reply.includes("[ASSESSMENT_COMPLETE]");
+    const cleanReply = reply.replace("[ASSESSMENT_COMPLETE]", "").trim();
 
     res.json({ reply: cleanReply, isComplete });
   } catch (err) {
-    console.error("Chat failure:", err);
-    res.status(500).json({ error: "AI failed to respond. Try again." });
+    console.error("Chat error:", err);
+    res.status(500).json({ error: "AI Terminal timed out. Try again." });
   }
 });
 
-// Generate Comprehensive Evaluation Report
+// ---------------- CANDIDATE REPORT ENGINE ---------------- //
 app.post("/generate-report", async (req, res) => {
-  const { transcript, role, experienceLevel, candidateName } = req.body;
+  const { transcript, role, candidateName } = req.body;
 
-  if (!transcript || !role || !candidateName) {
-    return res.status(400).json({ error: "Missing required fields." });
+  if (!transcript || !role) {
+    return res.status(400).json({ error: "Transcript required." });
   }
 
   const conversationText = transcript
-    .map((m) => `${m.role === "assistant" ? "Interviewer" : "Candidate"}: ${m.content}`)
+    .map((m) => `${m.role === "assistant" ? "Examiner" : "Candidate"}: ${m.content}`)
     .join("\n");
 
-  const reportPrompt = `You are the Bar Raiser and Hiring Committee Lead. Conduct a rigorous, critical evaluation of candidate "${candidateName}" for the position "${role}" (${experienceLevel} level).
+  const reportPrompt = `You are a Technical Hiring Committee Lead reviewing an assessment for "${role}" candidate "${candidateName || "Applicant"}".
 Transcript:
 ${conversationText}
 
-Produce a strict JSON report with realistic, uninflated scores (scale 1-10):
+Produce a strict, uninflated evaluation report strictly formatted as JSON:
 {
-  "overallScore": 7,
-  "recommendation": "<Strongly Recommend | Recommend | Neutral | Do Not Recommend>",
-  "summary": "<3-sentence executive verdict evaluating their depth vs senior expectations>",
-  "technicalScore": 7,
-  "communicationScore": 8,
-  "confidenceScore": 7,
-  "strengths": ["<Specific practical strength>", "<Architecture/metric understanding>"],
-  "weaknesses": ["<Identified blind spot or vague answer>", "<Edge-case deficiency>"],
-  "topicsCovered": ["<Topic 1>", "<Topic 2>", "<Topic 3>"],
-  "detailedFeedback": "<Detailed paragraph analyzing their problem-solving ability, honesty regarding unknown concepts, and domain mastery>",
-  "hiringNotes": "<Direct hiring recommendation notes for the engineering director>"
+  "overallScore": <1-10>,
+  "recommendation": "<Strongly Recommend | Recommend | Review Needed | Reject>",
+  "summary": "<2-3 sentence candid executive summary of code logic & depth>",
+  "technicalScore": <1-10>,
+  "problemSolvingScore": <1-10>,
+  "codeQualityScore": <1-10>,
+  "strengths": ["<strength 1>", "<strength 2>"],
+  "weaknesses": ["<critical gap 1>", "<critical gap 2>"],
+  "detailedFeedback": "<Detailed paragraph assessing actual technical competency>",
+  "hiringNotes": "<Direct verdict for engineering manager>"
 }`;
 
   try {
     const reportMessages = [
-      { role: "system", content: "You are an executive hiring evaluation model that outputs ONLY valid JSON." },
-      { role: "user", content: reportPrompt }
+      { role: "system", content: "You output pure JSON only with no conversational text." },
+      { role: "user", content: reportPrompt },
     ];
 
     const { reply } = await runGroqChat(reportMessages, 1000, 0.2);
     const jsonMatch = reply.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found in response");
+    if (!jsonMatch) throw new Error("No JSON generated.");
 
     const report = JSON.parse(jsonMatch[0]);
     res.json({ report });
   } catch (err) {
     console.error("Report generation error:", err);
-    res.status(500).json({ error: "Failed to generate report." });
+    res.status(500).json({ error: "Failed to generate evaluation report." });
   }
 });
 
-app.get("/", (req, res) => res.json({ status: "Backend running 🚀" }));
+app.get("/", (req, res) => res.json({ status: "InternAdda AI Engine Operational ⚡" }));
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () =>
