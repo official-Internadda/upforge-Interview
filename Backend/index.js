@@ -11,7 +11,6 @@ const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// CORS Configuration
 app.use(
   cors({
     origin: "*",
@@ -23,8 +22,33 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Stable Active Groq Model
-const GROQ_MODEL = "llama-3.1-8b-instant";
+// Dynamic model selector to ensure it never throws model_not_found
+async function getWorkingModel() {
+  try {
+    const list = await groq.models.list();
+    const available = list.data.map((m) => m.id);
+    console.log("Available Groq models on this key:", available);
+
+    // Preferred hierarchy of models
+    const preferred = [
+      "llama-3.1-8b-instant",
+      "llama3-8b-8192",
+      "mixtral-8x7b-32768",
+      "gemma2-9b-it",
+      "llama-3.3-70b-versatile",
+    ];
+
+    for (const p of preferred) {
+      if (available.includes(p)) return p;
+    }
+
+    // If none of preferred matched, pick first active chat model
+    return available[0] || "mixtral-8x7b-32768";
+  } catch (e) {
+    console.error("Failed fetching model list, falling back to mixtral-8x7b-32768:", e);
+    return "mixtral-8x7b-32768";
+  }
+}
 
 // PDF Parser
 async function extractTextFromPDF(buffer) {
@@ -98,8 +122,9 @@ Your interviewing rules:
 10. Never repeat a question already asked.`;
 
   try {
+    const activeModel = await getWorkingModel();
     const response = await groq.chat.completions.create({
-      model: GROQ_MODEL,
+      model: activeModel,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       temperature: 0.7,
       max_tokens: 300,
@@ -150,8 +175,9 @@ Based on this interview, generate a detailed evaluation report in the following 
 }`;
 
   try {
+    const activeModel = await getWorkingModel();
     const response = await groq.chat.completions.create({
-      model: GROQ_MODEL,
+      model: activeModel,
       messages: [{ role: "user", content: reportPrompt }],
       temperature: 0.3,
       max_tokens: 1000,
