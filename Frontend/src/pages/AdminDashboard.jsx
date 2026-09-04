@@ -1,268 +1,188 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, deleteDoc } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import SessionCard from "../components/SessionCard";
+import { FiCopy, FiTrash2, FiExternalLink, FiLogOut, FiUsers, FiDollarSign, FiCheckCircle } from "react-icons/fi";
 
 export default function AdminDashboard() {
-  const { user, adminLogout } = useAuth();
+  const { adminLogout } = useAuth();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
+  const [copiedLink, setCopiedLink] = useState("");
 
   useEffect(() => {
     const q = query(collection(db, "sessions"));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setSessions(data);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching sessions:", error);
-        setLoading(false);
-      }
-    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setSessions(data);
+      setLoading(false);
+    });
     return () => unsubscribe();
   }, []);
 
-  function handleLogout() {
-    adminLogout();
-    navigate("/login");
-  }
+  const copyUniversalLink = (role) => {
+    const link = `${window.location.origin}/test/${role.toLowerCase().replace(/\s+/g, "-")}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(role);
+    setTimeout(() => setCopiedLink(""), 2000);
+  };
 
-  const now = new Date();
-  const getDisplayStatus = (s) => {
-    if (s.status === "terminated") return "terminated";
-    if (s.status === "completed") return "completed";
-    if (s.endTime && now > new Date(s.endTime)) {
-      return "expired";
+  const handleDelete = async (id) => {
+    if (confirm("Delete this candidate assessment record?")) {
+      await deleteDoc(doc(db, "sessions", id));
     }
-    return s.status;
   };
 
-  const processedSessions = sessions.map((s) => ({ ...s, displayStatus: getDisplayStatus(s) }));
-  const stats = {
-    total: processedSessions.length,
-    pending: processedSessions.filter((s) => s.displayStatus === "pending").length,
-    completed: processedSessions.filter((s) => s.displayStatus === "completed").length,
-    in_progress: processedSessions.filter((s) => s.displayStatus === "in_progress").length,
-    terminated: processedSessions.filter((s) => s.displayStatus === "terminated").length,
-    expired: processedSessions.filter((s) => s.displayStatus === "expired").length,
-  };
-
-  const filtered = filter === "all" ? sessions : sessions.filter((s) => getDisplayStatus(s) === filter);
+  const paidCount = sessions.filter((s) => s.paymentStatus === "PAID").length;
+  const totalRevenue = paidCount * 29;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
-      <header className="sticky top-0 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center">
-                <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
-                <span className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">Interview Manager</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:block text-sm text-gray-600 dark:text-gray-300">
-                {user?.email}
-              </div>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
-                Administrator
-              </span>
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans">
+      <header className="border-b border-slate-800 bg-[#0c1222] px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <img src="/logo.jpg" alt="Logo" className="h-8 w-auto rounded" />
+          <span className="font-bold text-white text-base">UpForge & InternAdda Admin Console</span>
         </div>
+
+        <button
+          onClick={() => {
+            adminLogout();
+            navigate("/login");
+          }}
+          className="flex items-center space-x-2 text-xs text-red-400 hover:text-red-300 bg-red-950/30 px-3 py-1.5 rounded-lg border border-red-900/50"
+        >
+          <FiLogOut />
+          <span>Sign out</span>
+        </button>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Interview Dashboard</h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Manage and monitor all candidate interview sessions
-              </p>
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+            <div className="flex justify-between items-center text-slate-400 text-xs">
+              <span>Total Applicants</span>
+              <FiUsers className="w-5 h-5 text-indigo-400" />
             </div>
-            <div className="mt-4 md:mt-0">
-              <Link
-                to="/admin/create"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            <div className="text-2xl font-bold mt-2 text-white">{sessions.length}</div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+            <div className="flex justify-between items-center text-slate-400 text-xs">
+              <span>Completed / Paid</span>
+              <FiCheckCircle className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-bold mt-2 text-emerald-400">{paidCount}</div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+            <div className="flex justify-between items-center text-slate-400 text-xs">
+              <span>Total Pipeline Revenue (₹29)</span>
+              <FiDollarSign className="w-5 h-5 text-sky-400" />
+            </div>
+            <div className="text-2xl font-bold mt-2 text-sky-400 font-mono">₹{totalRevenue}</div>
+          </div>
+        </div>
+
+        {/* Shareable Role Track Links */}
+        <div className="mb-8 p-6 rounded-2xl bg-slate-900/70 border border-slate-800">
+          <h3 className="text-sm font-bold text-white mb-2">Universal Candidate Links (Share with 10,000+ Students)</h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Candidates who click will complete verification, pay ₹29 via Cashfree, and start their personalized proctored test.
+          </p>
+
+          <div className="flex flex-wrap gap-3">
+            {["Software Engineer", "Data Analyst", "Frontend Engineer", "AI ML Intern"].map((r, i) => (
+              <button
+                key={i}
+                onClick={() => copyUniversalLink(r)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-xs font-semibold flex items-center space-x-2 transition"
               >
-                <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                New Session
-              </Link>
-            </div>
+                <FiCopy className="text-indigo-400" />
+                <span>{copiedLink === r ? "Link Copied!" : `Copy Link: ${r}`}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 lg:grid-cols-6 mb-8">
-          {[
-            {
-              title: "Total Sessions",
-              value: stats.total,
-              icon: (
-                <svg className="h-6 w-6 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              ),
-              change: "+12%",
-              changeType: "positive",
-            },
-            {
-              title: "Pending",
-              value: stats.pending,
-              icon: (
-                <svg className="h-6 w-6 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ),
-              change: "+3%",
-              changeType: "neutral",
-            },
-            {
-              title: "In Progress",
-              value: stats.in_progress,
-              icon: (
-                <svg className="h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              ),
-              change: "+5%",
-              changeType: "positive",
-            },
-            {
-              title: "Completed",
-              value: stats.completed,
-              icon: (
-                <svg className="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ),
-              change: "+8%",
-              changeType: "positive",
-            },
-            {
-              title: "Terminated",
-              value: stats.terminated,
-              icon: (
-                <svg className="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 5.5A6.5 6.5 0 005.5 12a6.5 6.5 0 0013 0 6.5 6.5 0 00-6.5-6.5zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ),
-              change: "-1%",
-              changeType: "neutral",
-            },
-            {
-              title: "Expired",
-              value: stats.expired,
-              icon: (
-                <svg className="h-6 w-6 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ),
-              change: "0%",
-              changeType: "neutral",
-            },
-          ].map((item, index) => (
-            <div key={index} className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow border border-gray-200 dark:border-gray-700">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">{item.icon}</div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{item.title}</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900 dark:text-white">{item.value}</div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mb-6">
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="-mb-px flex space-x-8">
-              {[
-                { id: "all", name: "All Sessions", count: stats.total },
-                { id: "pending", name: "Pending", count: stats.pending },
-                { id: "in_progress", name: "In Progress", count: stats.in_progress },
-                { id: "completed", name: "Completed", count: stats.completed },
-                { id: "terminated", name: "Terminated", count: stats.terminated },
-                { id: "expired", name: "Expired", count: stats.expired },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setFilter(tab.id)}
-                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                    filter === tab.id
-                      ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-500"
-                  }`}
-                >
-                  {tab.name}
-                  <span
-                    className={`ml-2 py-0.5 px-2 rounded-full text-xs ${
-                      filter === tab.id
-                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300"
-                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              ))}
-            </nav>
+        {/* Candidate Assessment Records */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="p-5 border-b border-slate-800 flex justify-between items-center">
+            <h3 className="text-sm font-bold text-white">Live Candidate Pipeline</h3>
+            <span className="text-xs text-slate-500 font-mono">Auto-sync with Firestore</span>
           </div>
-        </div>
 
-        <div>
-          {loading ? (
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden py-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-500 dark:text-gray-400">Loading sessions...</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden py-12 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No sessions found</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new interview session.</p>
-              <div className="mt-6">
-                <Link
-                  to="/admin/create"
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  New Session
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filtered.map((session) => (
-                <div key={session.id} className="h-full">
-                  <SessionCard session={session} />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th className="p-4">Candidate</th>
+                  <th className="p-4">Role</th>
+                  <th className="p-4">Payment</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">AI Score</th>
+                  <th className="p-4">Date</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {sessions.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-850/50 transition">
+                    <td className="p-4">
+                      <div className="font-bold text-white">{s.candidateName}</div>
+                      <div className="text-[11px] text-slate-500">{s.candidateEmail}</div>
+                      <div className="text-[10px] text-slate-600 font-mono">{s.candidatePhone}</div>
+                    </td>
+                    <td className="p-4 font-semibold text-slate-300">{s.role}</td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          s.paymentStatus === "PAID"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                            : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                        }`}
+                      >
+                        {s.paymentStatus || "PENDING"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-slate-400 capitalize">{s.status?.replace("_", " ")}</span>
+                    </td>
+                    <td className="p-4">
+                      {s.report ? (
+                        <span className="font-bold text-emerald-400 text-sm">{s.report.overallScore}/10</span>
+                      ) : (
+                        <span className="text-slate-600">-</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-slate-500 font-mono text-[11px]">
+                      {new Date(s.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="p-4 text-right space-x-3">
+                      {s.report && (
+                        <Link
+                          to={`/admin/report/${s.sessionId}`}
+                          className="text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center"
+                        >
+                          <FiExternalLink className="mr-1" /> Report
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => handleDelete(s.id)}
+                        className="text-red-400 hover:text-red-300 p-1"
+                        title="Delete"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>
