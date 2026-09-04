@@ -2,54 +2,67 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-// SUPER SECRET ADMIN CREDENTIALS (Code me chupa hua)
-export const ADMIN_SECRET_KEY = "UPFORGE_ADMIN_SECRET_2026";
-export const ADMIN_CREDENTIALS = {
+// MASTER ADMIN CREDENTIALS (Code me hardcoded)
+export const MASTER_ADMIN = {
+  key: "UPFORGE_ADMIN_2026",
   email: "admin@internadda.com",
-  password: "SuperSecretPassword123#@"
+  password: "SuperSecretAdmin123#@"
 };
+
+interface CandidateData {
+  name: string;
+  email: string;
+  interviewId?: string;
+}
 
 interface AuthContextType {
   isAdmin: boolean;
   adminLogin: (email: string, pass: string) => boolean;
   adminLogout: () => void;
-  candidateName: string;
-  candidateEmail: string;
-  setCandidateSession: (name: string, email: string) => void;
+  candidate: CandidateData | null;
+  setCandidate: (data: CandidateData) => void;
+  clearCandidate: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   adminLogin: () => false,
   adminLogout: () => {},
-  candidateName: "",
-  candidateEmail: "",
-  setCandidateSession: () => {},
+  candidate: null,
+  setCandidate: () => {},
+  clearCandidate: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [candidateName, setCandidateName] = useState<string>("");
-  const [candidateEmail, setCandidateEmail] = useState<string>("");
+  const [candidate, setCandidateState] = useState<CandidateData | null>(null);
 
   useEffect(() => {
-    // Check saved session in browser
-    const storedAdmin = localStorage.getItem("upforge_admin_token");
-    if (storedAdmin === ADMIN_SECRET_KEY) {
-      setIsAdmin(true);
+    // Check Admin session
+    if (typeof window !== "undefined") {
+      const adminToken = localStorage.getItem("upforge_admin_logged");
+      if (adminToken === MASTER_ADMIN.key) {
+        setIsAdmin(true);
+      }
+      
+      // Check Candidate session
+      const savedCandidate = localStorage.getItem("upforge_active_candidate");
+      if (savedCandidate) {
+        try {
+          setCandidateState(JSON.parse(savedCandidate));
+        } catch (e) {
+          console.error(e);
+        }
+      }
     }
-    const cName = localStorage.getItem("upforge_candidate_name");
-    const cEmail = localStorage.getItem("upforge_candidate_email");
-    if (cName) setCandidateName(cName);
-    if (cEmail) setCandidateEmail(cEmail);
   }, []);
 
   const adminLogin = (email: string, pass: string) => {
     if (
-      (email === ADMIN_CREDENTIALS.email && pass === ADMIN_CREDENTIALS.password) ||
-      pass === ADMIN_SECRET_KEY
+      (email.trim() === MASTER_ADMIN.email && pass.trim() === MASTER_ADMIN.password) ||
+      pass.trim() === MASTER_ADMIN.key
     ) {
-      localStorage.setItem("upforge_admin_token", ADMIN_SECRET_KEY);
+      localStorage.setItem("upforge_admin_logged", MASTER_ADMIN.key);
       setIsAdmin(true);
       return true;
     }
@@ -57,15 +70,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const adminLogout = () => {
-    localStorage.removeItem("upforge_admin_token");
+    localStorage.removeItem("upforge_admin_logged");
     setIsAdmin(false);
   };
 
-  const setCandidateSession = (name: string, email: string) => {
-    localStorage.setItem("upforge_candidate_name", name);
-    localStorage.setItem("upforge_candidate_email", email);
-    setCandidateName(name);
-    setCandidateEmail(email);
+  const setCandidate = (data: CandidateData) => {
+    localStorage.setItem("upforge_active_candidate", JSON.stringify(data));
+    setCandidateState(data);
+  };
+
+  const clearCandidate = () => {
+    localStorage.removeItem("upforge_active_candidate");
+    setCandidateState(null);
   };
 
   return (
@@ -74,9 +90,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAdmin,
         adminLogin,
         adminLogout,
-        candidateName,
-        candidateEmail,
-        setCandidateSession,
+        candidate,
+        setCandidate,
+        clearCandidate,
       }}
     >
       {children}
