@@ -22,7 +22,7 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Models confirmed active on your Groq key
+// Models confirmed on your account
 const CHAT_MODELS = [
   "qwen/qwen3.8-27b",
   "qwen/qwen3.6-27b",
@@ -30,9 +30,9 @@ const CHAT_MODELS = [
   "groq/compound",
 ];
 
-// Helper to run chat completions safely across available models
 async function runGroqChat(messages, maxTokens = 300, temperature = 0.7) {
   let lastError = null;
+
   for (const model of CHAT_MODELS) {
     try {
       const response = await groq.chat.completions.create({
@@ -44,7 +44,6 @@ async function runGroqChat(messages, maxTokens = 300, temperature = 0.7) {
 
       let reply = response.choices?.[0]?.message?.content || "";
 
-      // Clean tool call artifacts if model wraps in JSON
       if (!reply && response.choices?.[0]?.message?.tool_calls?.length) {
         const toolCall = response.choices[0].message.tool_calls[0];
         try {
@@ -60,7 +59,6 @@ async function runGroqChat(messages, maxTokens = 300, temperature = 0.7) {
       }
     } catch (err) {
       console.warn(`Model ${model} failed:`, err?.message || err);
-      // If error contains failed_generation, extract reply text directly
       if (err?.error?.failed_generation) {
         try {
           const raw = err.error.failed_generation;
@@ -117,8 +115,8 @@ app.post("/parse-resume", upload.single("resume"), async (req, res) => {
 app.post("/chat", async (req, res) => {
   const { messages, resumeText, role, experienceLevel } = req.body;
 
-  if (!messages || !role) {
-    return res.status(400).json({ error: "Missing required fields." });
+  if (!role) {
+    return res.status(400).json({ error: "Missing required role." });
   }
 
   const levelDescriptions = {
@@ -128,26 +126,43 @@ app.post("/chat", async (req, res) => {
     senior: "4+ years of experience",
   };
 
-  const safeResume = resumeText || "No resume provided. Ask general technical questions for the role.";
+  const safeResume = resumeText || "No resume provided. Ask standard technical questions.";
 
   const systemPrompt = `You are a professional technical interviewer conducting a real job interview for the role of "${role}" (${
     levelDescriptions[experienceLevel] || experienceLevel || "mid"
   }).
-You have access to the candidate's resume:
+Candidate Resume Details:
 === RESUME START ===
 ${safeResume}
 === RESUME END ===
 
 Rules:
-1. Output plain conversational text only. Do not call functions, tools, or output JSON format.
+1. Always respond in plain conversational English text only. Never use function calls, tool calls, or JSON objects.
 2. Ask ONLY ONE question at a time.
-3. Greet candidate briefly and ask about their resume background/project.
-4. Keep questions concise (1-2 sentences).
-5. After 8-10 questions, wrap up with: "That's all the questions I have. Thank you for your time today — we'll be in touch soon." followed by [INTERVIEW_COMPLETE].
-6. Never repeat a question.`;
+3. First question must be a short polite greeting and asking about their background or a specific project on their resume.
+4. Keep all responses concise (1 to 2 sentences maximum).
+5. Wrap up after 8-10 questions by saying: "That's all the questions I have. Thank you for your time today — we'll be in touch soon." followed by [INTERVIEW_COMPLETE].
+6. Never repeat a question already asked.`;
+
+  // Fix: Ensure messages array is never empty and ends with user role
+  let chatMessages = [];
+  if (!messages || messages.length === 0) {
+    chatMessages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Hello, I am ready. Please introduce yourself and ask the first question." }
+    ];
+  } else {
+    chatMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages
+    ];
+    // If the last message is not from user, append a prompt
+    if (chatMessages[chatMessages.length - 1].role !== "user") {
+      chatMessages.push({ role: "user", content: "Please continue the interview." });
+    }
+  }
 
   try {
-    const chatMessages = [{ role: "system", content: systemPrompt }, ...messages];
     const { reply } = await runGroqChat(chatMessages, 300, 0.7);
 
     const isComplete = reply.includes("[INTERVIEW_COMPLETE]");
@@ -172,29 +187,32 @@ app.post("/generate-report", async (req, res) => {
     .map((m) => `${m.role === "assistant" ? "Interviewer" : "Candidate"}: ${m.content}`)
     .join("\n");
 
-  const reportPrompt = `You are a senior hiring manager reviewing a job interview for "${role}" (${experienceLevel} level) with candidate "${candidateName}".
-Here is the interview transcript:
-=== TRANSCRIPT START ===
+  const reportPrompt = `You are a senior hiring manager. Review this interview for "${role}" (${experienceLevel} level) with candidate "${candidateName}".
+Transcript:
 ${conversationText}
-=== TRANSCRIPT END ===
 
-Generate an evaluation report in this exact JSON structure (only JSON, no surrounding text):
+Output strictly valid JSON with this exact schema (no additional commentary or markdown):
 {
   "overallScore": 8,
   "recommendation": "Recommend",
-  "summary": "Candidate showed strong foundational skills.",
+  "summary": "Candidate demonstrated strong domain knowledge and clear communication.",
   "technicalScore": 8,
   "communicationScore": 8,
-  "confidenceScore": 7,
-  "strengths": ["Skill 1", "Skill 2"],
-  "weaknesses": ["Area 1", "Area 2"],
-  "topicsCovered": ["Topic 1", "Topic 2"],
-  "detailedFeedback": "Candidate answered questions clearly and demonstrated practical knowledge.",
-  "hiringNotes": "Suitable for next interview round."
+  "confidenceScore": 8,
+  "strengths": ["Problem Solving", "Domain Fundamentals"],
+  "weaknesses": ["Needs more deep dive on edge cases"],
+  "topicsCovered": ["Experience", "Projects", "Technical Questions"],
+  "detailedFeedback": "The candidate answered all core questions accurately.",
+  "hiringNotes": "Proceed to the next round."
 }`;
 
   try {
-    const { reply } = await runGroqChat([{ role: "user", content: reportPrompt }], 1000, 0.3);
+    const reportMessages = [
+      { role: "system", content: "You are an automated evaluation system that outputs only raw JSON." },
+      { role: "user", content: reportPrompt }
+    ];
+
+    const { reply } = await runGroqChat(reportMessages, 1000, 0.2);
     const jsonMatch = reply.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
 
