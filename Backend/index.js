@@ -22,7 +22,6 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Models confirmed on your account
 const CHAT_MODELS = [
   "qwen/qwen3.8-27b",
   "qwen/qwen3.6-27b",
@@ -30,7 +29,7 @@ const CHAT_MODELS = [
   "groq/compound",
 ];
 
-async function runGroqChat(messages, maxTokens = 300, temperature = 0.7) {
+async function runGroqChat(messages, maxTokens = 350, temperature = 0.6) {
   let lastError = null;
 
   for (const model of CHAT_MODELS) {
@@ -111,7 +110,7 @@ app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   }
 });
 
-// Chat / Interview Engine
+// Chat Engine with Tough Technical Interviewer Persona
 app.post("/chat", async (req, res) => {
   const { messages, resumeText, role, experienceLevel } = req.body;
 
@@ -119,63 +118,59 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "Missing required role." });
   }
 
-  const levelDescriptions = {
-    fresher: "0-1 years of experience, fresh graduate",
-    junior: "1-2 years of experience",
-    mid: "2-4 years of experience",
-    senior: "4+ years of experience",
-  };
+  const safeResume = resumeText || "No resume provided. Candidate is interviewing without prior context.";
 
-  const safeResume = resumeText || "No resume provided. Ask standard technical questions.";
-
-  const systemPrompt = `You are a professional technical interviewer conducting a real job interview for the role of "${role}" (${
-    levelDescriptions[experienceLevel] || experienceLevel || "mid"
-  }).
-Candidate Resume Details:
-=== RESUME START ===
+  const systemPrompt = `You are a Principal Technical Interviewer conducting a demanding, realistic job interview for the role of "${role}" (${experienceLevel || "Mid-to-Senior"} level).
+You have full access to the candidate's resume:
+=== CANDIDATE RESUME ===
 ${safeResume}
-=== RESUME END ===
+=== END RESUME ===
 
-Rules:
-1. Always respond in plain conversational English text only. Never use function calls, tool calls, or JSON objects.
-2. Ask ONLY ONE question at a time.
-3. First question must be a short polite greeting and asking about their background or a specific project on their resume.
-4. Keep all responses concise (1 to 2 sentences maximum).
-5. Wrap up after 8-10 questions by saying: "That's all the questions I have. Thank you for your time today — we'll be in touch soon." followed by [INTERVIEW_COMPLETE].
-6. Never repeat a question already asked.`;
+INTERVIEW GUIDELINES & PERSONA:
+1. Tone: Professional, articulate, rigorous, and direct. You are evaluating depth of experience, problem-solving under pressure, and architectural clarity.
+2. Structure:
+   - Question 1: Brief professional greeting, acknowledge their background, and ask a specific, challenging question about an actual project, tool, or metric mentioned in their resume.
+   - Subsequent Questions: Listen closely to their response. If their answer is generic or textbook, push deeper ("How did you handle race conditions in that system?", "What specific tradeoffs did you make?", "Can you quantify the latency reduction?").
+   - Challenge their claims: Do not merely nod along. Probe edge cases, failure scenarios, and scalability bottlenecks.
+   - Progress through: (1) Deep-dive into resume projects, (2) Real-world system design/problem scenario for the "${role}" position, (3) Edge-case troubleshooting, (4) One high-stakes leadership or conflict question.
+3. Strict Constraints:
+   - Always respond in plain conversational text. NO bullet points, NO Markdown headers, NO JSON formatting.
+   - Ask EXACTLY ONE question at a time. Never ask compound questions.
+   - Keep each turn crisp (maximum 2 to 3 sentences).
+   - Never validate their answers with praise like "Great answer!" or "Awesome!". Remain neutral ("Understood.", "Got it.", "Makes sense.").
+   - After 7 to 9 rigorous turns, gracefully conclude the session by saying exactly:
+     "Thank you for sharing your experience today. That completes our technical evaluation session. Our team will review the telemetry and follow up with you shortly." followed by [INTERVIEW_COMPLETE].`;
 
-  // Fix: Ensure messages array is never empty and ends with user role
   let chatMessages = [];
   if (!messages || messages.length === 0) {
     chatMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Hello, I am ready. Please introduce yourself and ask the first question." }
+      { role: "user", content: "Hello, I am ready to begin the interview. Please introduce yourself and start with the first question." }
     ];
   } else {
     chatMessages = [
       { role: "system", content: systemPrompt },
       ...messages
     ];
-    // If the last message is not from user, append a prompt
     if (chatMessages[chatMessages.length - 1].role !== "user") {
-      chatMessages.push({ role: "user", content: "Please continue the interview." });
+      chatMessages.push({ role: "user", content: "Please continue the interview based on my response." });
     }
   }
 
   try {
-    const { reply } = await runGroqChat(chatMessages, 300, 0.7);
+    const { reply } = await runGroqChat(chatMessages, 350, 0.65);
 
     const isComplete = reply.includes("[INTERVIEW_COMPLETE]");
     const cleanReply = reply.replace("[INTERVIEW_COMPLETE]", "").trim();
 
     res.json({ reply: cleanReply, isComplete });
   } catch (err) {
-    console.error("Final Groq chat failure:", err);
+    console.error("Chat failure:", err);
     res.status(500).json({ error: "AI failed to respond. Try again." });
   }
 });
 
-// Generate Report
+// Generate Comprehensive Evaluation Report
 app.post("/generate-report", async (req, res) => {
   const { transcript, role, experienceLevel, candidateName } = req.body;
 
@@ -187,28 +182,28 @@ app.post("/generate-report", async (req, res) => {
     .map((m) => `${m.role === "assistant" ? "Interviewer" : "Candidate"}: ${m.content}`)
     .join("\n");
 
-  const reportPrompt = `You are a senior hiring manager. Review this interview for "${role}" (${experienceLevel} level) with candidate "${candidateName}".
+  const reportPrompt = `You are the Bar Raiser and Hiring Committee Lead. Conduct a rigorous, critical evaluation of candidate "${candidateName}" for the position "${role}" (${experienceLevel} level).
 Transcript:
 ${conversationText}
 
-Output strictly valid JSON with this exact schema (no additional commentary or markdown):
+Produce a strict JSON report with realistic, uninflated scores (scale 1-10):
 {
-  "overallScore": 8,
-  "recommendation": "Recommend",
-  "summary": "Candidate demonstrated strong domain knowledge and clear communication.",
-  "technicalScore": 8,
+  "overallScore": 7,
+  "recommendation": "<Strongly Recommend | Recommend | Neutral | Do Not Recommend>",
+  "summary": "<3-sentence executive verdict evaluating their depth vs senior expectations>",
+  "technicalScore": 7,
   "communicationScore": 8,
-  "confidenceScore": 8,
-  "strengths": ["Problem Solving", "Domain Fundamentals"],
-  "weaknesses": ["Needs more deep dive on edge cases"],
-  "topicsCovered": ["Experience", "Projects", "Technical Questions"],
-  "detailedFeedback": "The candidate answered all core questions accurately.",
-  "hiringNotes": "Proceed to the next round."
+  "confidenceScore": 7,
+  "strengths": ["<Specific practical strength>", "<Architecture/metric understanding>"],
+  "weaknesses": ["<Identified blind spot or vague answer>", "<Edge-case deficiency>"],
+  "topicsCovered": ["<Topic 1>", "<Topic 2>", "<Topic 3>"],
+  "detailedFeedback": "<Detailed paragraph analyzing their problem-solving ability, honesty regarding unknown concepts, and domain mastery>",
+  "hiringNotes": "<Direct hiring recommendation notes for the engineering director>"
 }`;
 
   try {
     const reportMessages = [
-      { role: "system", content: "You are an automated evaluation system that outputs only raw JSON." },
+      { role: "system", content: "You are an executive hiring evaluation model that outputs ONLY valid JSON." },
       { role: "user", content: reportPrompt }
     ];
 
