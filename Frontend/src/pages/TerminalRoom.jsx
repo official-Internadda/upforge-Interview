@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
-import { FiClock, FiShield, FiSend, FiCameraOff, FiAlertTriangle } from "react-icons/fi";
+import { FiClock, FiShield, FiSend, FiCameraOff, FiAlertTriangle, FiCode } from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
 const TOTAL_SECONDS = 1800; // 30 Minutes
@@ -227,20 +227,20 @@ export default function TerminalRoom() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050811] flex items-center justify-center text-white font-mono text-sm">
-        BOOTING_TERMINAL_SESSION...
+      <div className="min-h-screen bg-white flex items-center justify-center text-[#0F172A] font-mono text-sm">
+        ALLOCATING_SECURE_ENVIRONMENT...
       </div>
     );
   }
 
   if (isTerminated) {
     return (
-      <div className="min-h-screen bg-[#070b14] flex items-center justify-center p-6 text-white font-mono">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-red-950/20 border border-red-800 text-center">
-          <FiAlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-          <h2 className="text-xl font-bold text-red-400">ASSESSMENT TERMINATED</h2>
-          <p className="text-xs text-slate-400 mt-2">
-            Automated integrity protocols triggered. 3 Window-blur strikes detected. Your evaluation has been marked invalid.
+      <div className="min-h-screen bg-[#FEF2F2] flex items-center justify-center p-6 text-[#991B1B] font-mono">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-white border border-[#FECACA] text-center shadow-xl">
+          <FiAlertTriangle className="w-12 h-12 text-[#DC2626] mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-[#991B1B]">ASSESSMENT TERMINATED</h2>
+          <p className="text-xs text-[#475569] mt-2 leading-relaxed">
+            Automated integrity protocols flagged 3 window-blur strikes. Your assessment has been permanently locked and flagged in the UpForge registry.
           </p>
         </div>
       </div>
@@ -248,68 +248,77 @@ export default function TerminalRoom() {
   }
 
   return (
-    <div className="h-screen bg-[#050811] text-slate-200 flex flex-col font-mono text-xs selection:bg-indigo-600 selection:text-white">
+    <div className="h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-mono text-xs selection:bg-[#2563EB] selection:text-white">
       {/* Toast Warning */}
       {showWarningToast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-5 py-2.5 rounded-lg shadow-2xl flex items-center space-x-2 animate-pulse border border-red-300">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#DC2626] text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 animate-bounce border border-red-300">
           <FiAlertTriangle />
           <span className="font-bold">VIOLATION STRIKE {warnings}/3: Window switch detected!</span>
         </div>
       )}
 
-      {/* Top Header */}
-      <header className="h-14 border-b border-slate-800 bg-[#080d1a] px-6 flex items-center justify-between">
+      {/* Top Professional Header */}
+      <header className="h-16 border-b border-[#E2E8F0] bg-white px-6 flex items-center justify-between shadow-sm">
         <div className="flex items-center space-x-3">
-          <span className="text-emerald-400 font-bold tracking-wider">UPFORGE_TERMINAL_v4</span>
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-300">{session?.role}</span>
-          <span className="text-slate-500 text-[10px]">({session?.candidateName})</span>
+          <span className="text-[#2563EB] font-bold tracking-wider">UPFORGE_TERMINAL</span>
+          <span className="text-[#CBD5E1]">|</span>
+          <span className="text-[#0F172A] font-semibold">{session?.role}</span>
+          <span className="text-[#64748B] text-[11px]">({session?.candidateName})</span>
         </div>
 
         <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2 text-indigo-400 bg-slate-900 border border-slate-800 px-3 py-1 rounded">
+          <div className="flex items-center space-x-2 text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-1 rounded-lg">
             <FiClock />
             <span className="font-bold">{formatTimer(timeLeft)}</span>
           </div>
 
-          <span className="text-slate-400">Q: {questionCount}/10</span>
+          <span className="text-[#64748B] font-semibold">Question {questionCount}/10</span>
 
-          <div className="flex items-center space-x-1 text-emerald-400 text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div className="flex items-center space-x-1.5 text-[#059669] text-[11px] font-bold bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-0.5 rounded-full">
+            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
             <span>PROCTORED</span>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* Main Terminal Body */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Terminal Chat Stream (Left/Center) */}
-        <div className="flex-1 flex flex-col overflow-hidden pb-40">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 pr-64 sm:pr-80">
-            <div className="text-slate-500 pb-2 border-b border-slate-800/80 text-[11px]">
-              * AI Technical Terminal initialized. Type your solutions, code blocks, or explanations directly into the buffer below.
+        <div className="flex-1 flex flex-col overflow-hidden pb-44">
+          <div className="flex-1 overflow-y-auto p-8 space-y-5 pr-64 sm:pr-80">
+            <div className="text-[#64748B] pb-3 border-b border-[#E2E8F0] text-[11px]">
+              * Standardized CLI assessment initialized. Type logic, answers, SQL statements, or algorithm blocks directly into the input buffer.
             </div>
 
             {messages.map((m, idx) => (
-              <div key={idx} className={`${m.role === "assistant" ? "text-emerald-400" : "text-sky-300"} leading-relaxed`}>
-                <span className="font-bold text-slate-500 mr-2">
-                  {m.role === "assistant" ? "EXAMINER >>" : "CANDIDATE >>"}
-                </span>
-                <span className="whitespace-pre-wrap">{m.content}</span>
+              <div
+                key={idx}
+                className={`p-4 rounded-2xl border ${
+                  m.role === "assistant"
+                    ? "bg-white border-[#E2E8F0] text-[#0F172A] shadow-sm"
+                    : "bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]"
+                }`}
+              >
+                <div className="font-bold text-[10px] text-[#64748B] uppercase tracking-wider mb-1">
+                  {m.role === "assistant" ? "Examiner Prompt" : "Candidate Response"}
+                </div>
+                <div className="whitespace-pre-wrap leading-relaxed text-xs font-sans">
+                  {m.content}
+                </div>
               </div>
             ))}
 
             {thinking && (
-              <div className="text-indigo-400 flex items-center space-x-2 animate-pulse">
-                <span>ANALYZING CODE BUFFER & GENERATING FOLLOW-UP...</span>
+              <div className="text-[#2563EB] flex items-center space-x-2 animate-pulse font-sans text-xs">
+                <span>Analyzing code buffer and synthesizing follow-up prompt...</span>
               </div>
             )}
 
             {isComplete && (
-              <div className="p-4 rounded bg-emerald-950/30 border border-emerald-800 text-emerald-300 space-y-2 mt-4">
-                <p className="font-bold">ASSESSMENT COMPLETED SUCCESSFULLY.</p>
-                <p className="text-slate-400 text-[11px]">
-                  Your technical transcript has been indexed. The recruiting team will reach out with the evaluation result.
+              <div className="p-6 rounded-2xl bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] space-y-2 mt-4 shadow-sm font-sans">
+                <p className="font-extrabold text-sm">ASSESSMENT COMPLETED SUCCESSFULLY.</p>
+                <p className="text-xs text-[#047857]">
+                  Your technical transcript and code submissions have been indexed for the UpForge Talent Committee.
                 </p>
               </div>
             )}
@@ -318,32 +327,37 @@ export default function TerminalRoom() {
           </div>
         </div>
 
-        {/* Live Floating Camera Box (Top Right) */}
+        {/* Live Proctoring Cam Box (Top Right) */}
         <div className="absolute right-6 top-6 w-52 sm:w-64 z-20 pointer-events-none">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl relative pointer-events-auto">
-            <div className="h-36 sm:h-44 bg-black flex items-center justify-center">
+          <div className="bg-white border border-[#CBD5E1] rounded-2xl overflow-hidden shadow-xl relative pointer-events-auto">
+            <div className="h-36 sm:h-44 bg-[#0F172A] flex items-center justify-center">
               {cameraEnabled ? (
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover transform scale-x-[-1]" />
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover transform scale-x-[-1]"
+                />
               ) : (
-                <div className="text-slate-600 text-center text-[10px]">
+                <div className="text-[#64748B] text-center text-[10px]">
                   <FiCameraOff className="mx-auto mb-1 w-5 h-5" />
-                  FEED_OFFLINE
+                  FEED_STANDBY
                 </div>
               )}
             </div>
-            <div className="p-2 bg-[#090e1a] border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400">
-              <span>INTEGRITY FEED</span>
-              <span className="text-emerald-400 font-bold">1080p</span>
+            <div className="p-2.5 bg-white border-t border-[#E2E8F0] flex justify-between items-center text-[10px] text-[#475569]">
+              <span className="font-bold">HARDWARE EYE</span>
+              <span className="text-[#10B981] font-bold">1080p LIVE</span>
             </div>
           </div>
         </div>
 
         {/* Command Buffer Input Bar (Bottom) */}
         {!isComplete && (
-          <div className="absolute bottom-4 left-4 right-4 sm:right-72 z-30">
-            <div className="bg-[#0b1120] border border-slate-700/80 rounded-xl p-3 shadow-2xl">
-              <div className="flex items-start space-x-2">
-                <span className="text-indigo-400 font-bold pt-2.5 pl-2">&gt;</span>
+          <div className="absolute bottom-6 left-6 right-6 sm:right-72 z-30">
+            <div className="bg-white border border-[#CBD5E1] rounded-2xl p-3.5 shadow-2xl">
+              <div className="flex items-start space-x-3">
                 <textarea
                   value={inputBuffer}
                   onChange={(e) => setInputBuffer(e.target.value)}
@@ -354,16 +368,16 @@ export default function TerminalRoom() {
                     }
                   }}
                   disabled={thinking}
-                  placeholder="Type your explanation, logic, or code here... (Shift+Enter for new line, Enter to submit)"
-                  className="flex-1 bg-transparent border-0 resize-none focus:outline-none text-slate-100 placeholder-slate-600 text-xs font-mono py-2"
+                  placeholder="Type your explanation, logic, or code here... (Shift+Enter for newline, Enter to submit)"
+                  className="flex-1 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-3 text-xs font-mono resize-none focus:outline-none focus:border-[#2563EB] text-[#0F172A] placeholder-[#94A3B8]"
                   rows={3}
                 />
                 <button
                   onClick={handleSend}
                   disabled={!inputBuffer.trim() || thinking}
-                  className="h-10 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white rounded-lg font-bold flex items-center space-x-1 transition mt-1"
+                  className="h-12 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 text-white rounded-xl font-bold flex items-center space-x-2 transition shadow-md shadow-blue-500/20"
                 >
-                  <span>EXEC</span>
+                  <span>Submit</span>
                   <FiSend />
                 </button>
               </div>
