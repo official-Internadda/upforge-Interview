@@ -1,59 +1,31 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import AdminDashboard from "./pages/AdminDashboard";
-import CandidateDashboard from "./pages/CandidateDashboard";
-import CreateSession from "./pages/CreateSession";
-import InterviewLanding from "./pages/InterviewLanding";
-import InterviewRoom from "./pages/InterviewRoom";
-import SessionReport from "./pages/SessionReport";
+import CandidateStart from "./pages/CandidateStart";
+// Baki tumhare components import rahenge...
+
+// Sirf Admin ke routes ko protect karne ke liye:
+function AdminRoute({ children }) {
+  const { isAdmin } = useAuth();
+  return isAdmin ? children : <Navigate to="/login" replace />;
+}
 
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* Admin Login */}
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/create"
-            element={
-              <ProtectedRoute requiredRole="admin">
-                <CreateSession />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/report/:sessionId"
-            element={
-              <ProtectedRoute requiredRole="admin">
-                <SessionReport />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/candidate"
-            element={
-              <ProtectedRoute requiredRole="candidate">
-                <CandidateDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/interview/:sessionId" element={<InterviewLanding />} />
-          <Route path="/interview/:sessionId/start" element={<InterviewRoom />} />
+
+          {/* Direct Candidate Entry link: /start ya /start/:id */}
+          <Route path="/start/:id" element={<CandidateStart />} />
+          <Route path="/start" element={<CandidateStart />} />
+
+          {/* Baki tumhare existing routes yahan rahenge */}
         </Routes>
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   );
 }
