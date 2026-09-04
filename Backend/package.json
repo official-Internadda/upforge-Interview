@@ -2,17 +2,16 @@
   "name": "interview-bot-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
+    "start": "node index.js"
   },
   "dependencies": {
+    "axios": "^1.7.9",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "groq-sdk": "^0.37.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "groq-sdk": "^0.5.0",
     "multer": "^1.4.5-lts.1",
-    "pdfjs-dist": "^5.5.207"
+    "pdfjs-dist": "^4.0.379"
   }
 }
