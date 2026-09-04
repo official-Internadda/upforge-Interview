@@ -14,7 +14,7 @@ export default function VerifyPayment() {
   useEffect(() => {
     async function verify() {
       if (!orderId) {
-        setStatus("Invalid payment session.");
+        setStatus("Invalid payment session reference.");
         return;
       }
 
@@ -27,9 +27,8 @@ export default function VerifyPayment() {
         const data = await res.json();
 
         if (data.success) {
-          setStatus("Payment Verified! Allocating assessment room...");
+          setStatus("Payment Verified! Preparing your terminal assessment...");
 
-          // Update Firestore session
           const q = query(collection(db, "sessions"), where("orderId", "==", orderId));
           const snap = await getDocs(q);
           if (!snap.empty) {
@@ -46,14 +45,14 @@ export default function VerifyPayment() {
               navigate(`/room/${sessionData.sessionId}`);
             }, 1000);
           } else {
-            setStatus("Session reference not found. Contact support.");
+            setStatus("Session reference not found. Please contact support.");
           }
         } else {
-          setStatus("Payment was not completed. Please try again.");
+          setStatus("Payment transaction incomplete. Please try again.");
         }
       } catch (err) {
         console.error(err);
-        setStatus("Verification error. Please refresh.");
+        setStatus("Verification network error. Please refresh.");
       }
     }
 
@@ -61,11 +60,11 @@ export default function VerifyPayment() {
   }, [orderId]);
 
   return (
-    <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center text-white px-4">
-      <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center max-w-md w-full shadow-2xl">
-        <div className="w-12 h-12 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto mb-4"></div>
-        <h2 className="text-lg font-bold mb-2">Processing Transaction</h2>
-        <p className="text-xs text-slate-400 font-mono">{status}</p>
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-900 px-4">
+      <div className="p-8 rounded-3xl bg-white border border-slate-200 text-center max-w-md w-full shadow-lg">
+        <div className="w-12 h-12 rounded-full border-2 border-blue-600 border-t-transparent animate-spin mx-auto mb-4"></div>
+        <h2 className="text-lg font-bold mb-2 text-slate-900">Validating Cashfree Transaction</h2>
+        <p className="text-xs text-slate-500 font-mono">{status}</p>
       </div>
     </div>
   );
