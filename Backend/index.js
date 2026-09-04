@@ -11,31 +11,49 @@ const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-app.use(cors());
+// CORS Configuration
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.options("*", cors());
 app.use(express.json());
 
-// ─── PDF Parser ───────────────────────────────────────────
+// Stable Active Groq Model
+const GROQ_MODEL = "llama-3.1-8b-instant";
+
+// PDF Parser
 async function extractTextFromPDF(buffer) {
   const uint8Array = new Uint8Array(buffer);
   const pdf = await getDocument({ data: uint8Array }).promise;
   let fullText = "";
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const pageText = content.items.map((item) => item.str).join(" ");
     fullText += pageText + "\n";
   }
+
   return fullText.trim();
 }
 
-// ─── Resume Upload ─────────────────────────────────────────
+// Resume Upload
 app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
     const text = await extractTextFromPDF(req.file.buffer);
     if (!text || text.length < 50) {
-      return res.status(400).json({ error: "Could not extract text. Make sure it's not a scanned image." });
+      return res.status(400).json({
+        error: "Could not extract text. Make sure it's not a scanned image.",
+      });
     }
+
     res.json({ text });
   } catch (err) {
     console.error("PDF parse error:", err);
@@ -43,26 +61,28 @@ app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   }
 });
 
-// ─── Chat / Interview Engine ───────────────────────────────
+// Chat / Interview Engine
 app.post("/chat", async (req, res) => {
   const { messages, resumeText, role, experienceLevel } = req.body;
 
-  if (!messages || !resumeText || !role) {
+  if (!messages || !role) {
     return res.status(400).json({ error: "Missing required fields." });
   }
 
   const levelDescriptions = {
     fresher: "0-1 years of experience, fresh graduate",
-    junior:  "1-2 years of experience",
-    mid:     "2-4 years of experience",
-    senior:  "4+ years of experience",
+    junior: "1-2 years of experience",
+    mid: "2-4 years of experience",
+    senior: "4+ years of experience",
   };
 
-  const systemPrompt = `You are a professional technical interviewer conducting a real job interview for the role of "${role}" (${levelDescriptions[experienceLevel] || experienceLevel}).
+  const safeResume = resumeText || "No resume uploaded. Ask direct role questions.";
 
-You have access to the candidate's resume:
+  const systemPrompt = `You are a professional technical interviewer conducting a real job interview for the role of "${role}" (${
+    levelDescriptions[experienceLevel] || experienceLevel || "mid"
+  }). You have access to the candidate's resume:
 === RESUME START ===
-${resumeText}
+${safeResume}
 === RESUME END ===
 
 Your interviewing rules:
@@ -79,11 +99,8 @@ Your interviewing rules:
 
   try {
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ],
+      model: GROQ_MODEL,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
       temperature: 0.7,
       max_tokens: 300,
     });
@@ -94,12 +111,12 @@ Your interviewing rules:
 
     res.json({ reply: cleanReply, isComplete });
   } catch (err) {
-    console.error("Groq error:", err);
+    console.error("Groq chat error:", err);
     res.status(500).json({ error: "AI failed to respond. Try again." });
   }
 });
 
-// ─── Generate Report ───────────────────────────────────────
+// Generate Report
 app.post("/generate-report", async (req, res) => {
   const { transcript, role, experienceLevel, candidateName } = req.body;
 
@@ -112,14 +129,12 @@ app.post("/generate-report", async (req, res) => {
     .join("\n");
 
   const reportPrompt = `You are a senior hiring manager. You just reviewed a job interview for the role of "${role}" (${experienceLevel} level) with candidate "${candidateName}".
-
 Here is the full interview transcript:
 === TRANSCRIPT START ===
 ${conversationText}
 === TRANSCRIPT END ===
 
 Based on this interview, generate a detailed evaluation report in the following exact JSON format. Return ONLY the JSON, no extra text:
-
 {
   "overallScore": <number 1-10>,
   "recommendation": "<Strongly Recommend | Recommend | Neutral | Do Not Recommend>",
@@ -136,7 +151,7 @@ Based on this interview, generate a detailed evaluation report in the following 
 
   try {
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: GROQ_MODEL,
       messages: [{ role: "user", content: reportPrompt }],
       temperature: 0.3,
       max_tokens: 1000,
@@ -154,8 +169,10 @@ Based on this interview, generate a detailed evaluation report in the following 
   }
 });
 
-// ─── Health Check ──────────────────────────────────────────
-app.get("/", (req, res) => res.json({ status: "Backend running ✅" }));
+// Health Check
+app.get("/", (req, res) => res.json({ status: "Backend running 🚀" }));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, "0.0.0.0", () =>
+  console.log(`Backend running on http://0.0.0.0:${PORT}`)
+);
