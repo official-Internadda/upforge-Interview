@@ -16,9 +16,9 @@ import {
   FiRotateCcw,
   FiCpu,
   FiFileText,
-  FiUsers,
   FiLock,
   FiHelpCircle,
+  FiXCircle,
   FiMenu,
   FiX
 } from "react-icons/fi";
@@ -29,11 +29,11 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("all");
 
   const partners = [
-    { name: "Arjuna AI", tag: "AI / LLM Research Partner", emblem: "AA" },
-    { name: "Strives Studio", tag: "Creative Tech & Media", emblem: "SS" },
-    { name: "UpForge", tag: "Venture & Startup Registry", emblem: "UF" },
-    { name: "CodeVanguard", tag: "Full-Stack & Cloud Systems", emblem: "CV" },
-    { name: "DataNexus Labs", tag: "Enterprise Analytics", emblem: "DN" },
+    { name: "UpForge", tag: "Startup & Venture Registry", logo: "/upforge.jpg" },
+    { name: "Arjuna AI", tag: "AI / LLM Research Labs", logo: "/arjuna.jpg" },
+    { name: "Strives Studio", tag: "Digital Tech & Media", logo: "/strives.jpg" },
+    { name: "CodeVanguard", tag: "Cloud Systems & DevOps", logo: "/codevanguard.jpg" },
+    { name: "DataNexus", tag: "Enterprise Intelligence", logo: "/datanexus.jpg" },
   ];
 
   const tracks = [
@@ -101,7 +101,7 @@ export default function Home() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="font-semibold text-white">InternAdda Standardized Assessment Gateway</span>
             <span className="text-slate-500">•</span>
-            <span>Talent Pipeline for Arjuna AI, Strives Studio, UpForge & Partners</span>
+            <span>Talent Pipeline for UpForge, Arjuna AI, Strives Studio & Partners</span>
           </div>
           <div className="flex items-center space-x-3 font-mono text-[11px] text-slate-400">
             <span>Verified Proctored Sandbox</span>
@@ -119,6 +119,7 @@ export default function Home() {
               src="/logo.jpg"
               alt="InternAdda"
               className="h-10 w-auto rounded-lg object-contain border border-slate-200 shadow-sm"
+              onError={(e) => { e.target.style.display = "none"; }}
             />
             <div className="h-6 w-[1px] bg-slate-200"></div>
             <span className="font-extrabold text-slate-900 text-base tracking-tight">
@@ -130,7 +131,7 @@ export default function Home() {
             <a href="#how-it-works" className="hover:text-blue-600 transition">How It Works</a>
             <a href="#tracks" className="hover:text-blue-600 transition">Assessment Tracks</a>
             <a href="#proctoring" className="hover:text-blue-600 transition">Proctoring & Rules</a>
-            <a href="#refund-policy" className="hover:text-blue-600 transition">Deposit & Refund</a>
+            <a href="#refund-policy" className="hover:text-blue-600 transition">Deposit & T&C</a>
             <a href="#partners" className="hover:text-blue-600 transition">Hiring Partners</a>
           </nav>
 
@@ -182,7 +183,7 @@ export default function Home() {
               onClick={() => setMobileMenuOpen(false)}
               className="block text-sm font-semibold text-slate-700"
             >
-              Deposit & 100% Refund
+              Deposit & Refund T&C
             </a>
             <button
               onClick={() => {
@@ -245,7 +246,7 @@ export default function Home() {
               </div>
               <div>
                 <div className="text-2xl font-black text-blue-600 font-mono">100%</div>
-                <div className="text-xs text-slate-500 mt-0.5">Refundable Security Deposit</div>
+                <div className="text-xs text-slate-500 mt-0.5">Refund on Passing T&C</div>
               </div>
             </div>
           </div>
@@ -299,22 +300,33 @@ export default function Home() {
       </section>
 
       {/* Hiring Partners Registry */}
-      <section id="partners" className="py-12 border-y border-slate-200 bg-slate-50">
+      <section id="partners" className="py-14 border-y border-slate-200 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-8">
-          <div className="text-center mb-8">
+          <div className="text-center mb-8 space-y-1">
             <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
               Verified Candidate Registry Shared With
             </span>
+            <p className="text-xs text-slate-400">
+              Direct telemetry forwarded to technical leads & recruitment panels
+            </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {partners.map((p, idx) => (
               <div
                 key={idx}
-                className="bg-white border border-slate-200 p-4 rounded-2xl text-center shadow-2xs hover:shadow-sm transition"
+                className="bg-white border border-slate-200 p-5 rounded-2xl text-center shadow-2xs hover:shadow-sm transition flex flex-col items-center justify-center"
               >
-                <div className="w-10 h-10 mx-auto rounded-xl bg-blue-50 text-blue-700 font-extrabold flex items-center justify-center text-sm font-mono mb-2">
-                  {p.emblem}
+                <div className="w-14 h-14 mb-3 rounded-xl border border-slate-100 flex items-center justify-center bg-slate-50 p-1 overflow-hidden">
+                  <img
+                    src={p.logo}
+                    alt={p.name}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.parentElement.innerHTML = `<span class="font-bold text-blue-700 font-mono text-sm">${p.name.substring(0, 2).toUpperCase()}</span>`;
+                    }}
+                  />
                 </div>
                 <div className="font-bold text-sm text-slate-900">{p.name}</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">{p.tag}</div>
@@ -353,9 +365,9 @@ export default function Home() {
             <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white font-bold font-mono flex items-center justify-center text-sm">
               02
             </div>
-            <h3 className="text-base font-bold text-slate-900">₹29 Integrity Deposit</h3>
+            <h3 className="text-base font-bold text-slate-900">₹29 Security Deposit</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Submit the nominal ₹29 anti-cheat deposit via Cashfree. This deters automated bots and ghost applications, ensuring reserved server capacity.
+              Submit the nominal ₹29 anti-cheating deposit via Cashfree to lock server capacity and verify candidate seriousness.
             </p>
           </div>
 
@@ -375,7 +387,7 @@ export default function Home() {
             </div>
             <h3 className="text-base font-bold text-slate-900">Report & 100% Refund</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Completed transcripts are scored and sent to partner recruiters. Clean attempts completed without tab-switching receive their deposit refund within 7 days.
+              Score ≥ 50% without triggering cheating/tab-switch strikes to receive a full 100% refund within 7 working days to your account.
             </p>
           </div>
         </div>
@@ -486,7 +498,7 @@ export default function Home() {
             </div>
             <h3 className="text-base font-bold text-slate-900">Local Camera Presence</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Your webcam streams locally to verify candidate identity and presence in the exam frame. No audio or desktop recordings are stored without your knowledge.
+              Your webcam streams locally to verify candidate identity and presence in the exam frame. Moving out of frame will flag an alert.
             </p>
           </div>
 
@@ -496,7 +508,7 @@ export default function Home() {
             </div>
             <h3 className="text-base font-bold text-slate-900">3-Strike Window Lockdown</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Leaving or minimizing the assessment tab activates immediate strike warnings. Reaching 3 violations automatically terminates the session and voids the attempt.
+              Leaving or minimizing the assessment tab activates immediate strike warnings. Reaching 3 violations automatically terminates the session and forfeits the refund.
             </p>
           </div>
 
@@ -506,61 +518,83 @@ export default function Home() {
             </div>
             <h3 className="text-base font-bold text-slate-900">Contextual Follow-Ups</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Submitting superficial or generic answers prompts the AI examiner to drill into exact technical mechanics, ensuring you truly understand the logic you write.
+              Submitting superficial or generic answers prompts the AI examiner to drill into exact technical mechanics, ensuring authentic reasoning.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Deposit & 100% Refund Policy Banner */}
+      {/* Deposit & 100% Refund Terms & Conditions Section */}
       <section id="refund-policy" className="py-16 bg-slate-50 border-t border-slate-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-sm space-y-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-sm space-y-8">
             <div className="flex items-center space-x-3 text-emerald-700">
               <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                 <FiRotateCcw className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-extrabold text-slate-900">₹29 Anti-Cheating Deposit & Refund Policy</h3>
-                <span className="text-xs font-semibold text-emerald-700">Fair Testing Commitment</span>
+                <h3 className="text-xl font-extrabold text-slate-900">₹29 Security Deposit: 100% Refund Policy & Terms</h3>
+                <span className="text-xs font-semibold text-emerald-700">Strict Anti-Cheating & Integrity Protocol</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600 leading-relaxed">
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm">Why We Charge ₹29:</h4>
-                <p>
-                  To eliminate automated submission spam and ensure GPU capacity for candidates who are serious about their technical evaluation. This is an operational integrity deposit, not a recruitment fee.
-                </p>
+            {/* Refund Conditions: Success vs Disqualification */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Eligible for 100% Refund */}
+              <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                <div className="flex items-center space-x-2 text-emerald-900 font-bold text-sm">
+                  <FiCheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>Conditions for 100% Refund:</span>
+                </div>
+                <ul className="text-xs text-emerald-950 space-y-2 list-disc list-inside leading-relaxed">
+                  <li><strong>Score ≥ 50%:</strong> Candidate must score at least 5 out of 10 points on their technical evaluation.</li>
+                  <li><strong>Zero Cheating Strikes:</strong> Must not commit more than 2 tab-switches or window blur violations during the 30-minute exam.</li>
+                  <li><strong>Complete Submission:</strong> Must attempt all 10 sequential technical questions and submit via the terminal.</li>
+                  <li><strong>Automatic Processing:</strong> If all conditions are met, ₹29 is automatically refunded to your original payment method within 7 working days.</li>
+                </ul>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm">How the 100% Refund Works:</h4>
-                <p>
-                  If you complete all 10 assessment questions honestly without triggering the 3 tab-switch proctoring violations, your full ₹29 deposit is refunded within 7 working days to your original payment source.
-                </p>
+              {/* Ineligible / Disqualification */}
+              <div className="p-5 rounded-2xl bg-rose-50/70 border border-rose-200 space-y-3">
+                <div className="flex items-center space-x-2 text-rose-900 font-bold text-sm">
+                  <FiXCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>Deposit Forfeited / No Selection:</span>
+                </div>
+                <ul className="text-xs text-rose-950 space-y-2 list-disc list-inside leading-relaxed">
+                  <li><strong>Score &lt; 50%:</strong> Candidates scoring below 5/10 are evaluated as non-qualifying; fee is used for compute processing.</li>
+                  <li><strong>Cheating / 3 Strikes:</strong> 3 tab switches or browser minimization triggers immediate termination. No refund will be issued.</li>
+                  <li><strong>Disqualification:</strong> Flagged candidates are disqualified from the current hiring cycle across partner companies.</li>
+                  <li><strong>Candidate Advisory:</strong> This ensures only authentic practitioners proceed to partner recruitment interviews.</li>
+                </ul>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
-              <div className="text-slate-500 flex items-center">
-                <FiLock className="mr-1.5 text-blue-600" />
-                Processed securely via Cashfree Web Gateway
+            {/* Regulatory & Advisory Disclaimer */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-2">
+              <div className="flex items-center space-x-1.5 font-bold text-slate-800">
+                <FiHelpCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>Legal & Recruitment Notice:</span>
               </div>
-              <div className="text-slate-500 font-mono text-[11px]">
-                Questions? Email: <a href="mailto:support@internadda.com" className="text-blue-600 underline">support@internadda.com</a>
-              </div>
+              <p>
+                <strong>Important Notice:</strong> InternAdda collects a nominal refundable evaluation deposit (₹29) strictly to reserve proctored cloud assessment infrastructure and eliminate bot spam. This is <strong>not an employment fee, job guarantee fee, or recruitment charge</strong> levied by UpForge, Arjuna AI, Strives Studio, or any hiring partner.
+              </p>
+              <p className="font-mono text-[11px] text-slate-500">
+                For any queries regarding assessment results or refund status, email us at:{" "}
+                <a href="mailto:support@internadda.com" className="text-blue-600 underline font-semibold">
+                  support@internadda.com
+                </a>
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Corporate Footer */}
+      {/* Comprehensive Corporate Footer */}
       <footer className="border-t border-slate-200 bg-white py-12 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
-              <img src="/logo.jpg" alt="Logo" className="h-8 w-auto rounded object-contain" />
+              <img src="/logo.jpg" alt="Logo" className="h-8 w-auto rounded object-contain" onError={(e) => { e.target.style.display = "none"; }} />
               <span className="font-bold text-slate-900 text-sm">InternAdda Career Innovations</span>
             </div>
 
@@ -568,7 +602,8 @@ export default function Home() {
               <a href="#how-it-works" className="hover:text-slate-900">Evaluation Lifecycle</a>
               <a href="#tracks" className="hover:text-slate-900">Active Tracks</a>
               <a href="#proctoring" className="hover:text-slate-900">Integrity Protocol</a>
-              <a href="#refund-policy" className="hover:text-slate-900">Refund Guarantee</a>
+              <a href="#refund-policy" className="hover:text-slate-900">Refund T&C</a>
+              <a href="#partners" className="hover:text-slate-900">Hiring Partners</a>
             </div>
           </div>
 
