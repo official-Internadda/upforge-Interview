@@ -10,9 +10,10 @@ import {
   FiArrowLeft,
   FiClock,
   FiVideo,
-  FiAlertTriangle,
   FiRotateCcw,
-  FiHelpCircle
+  FiHelpCircle,
+  FiAward,
+  FiTarget
 } from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
@@ -138,31 +139,39 @@ export default function AssessmentGateway() {
       {/* Main Container */}
       <main className="flex-1 max-w-md mx-auto px-4 py-8 w-full">
         {/* Title Header */}
-        <div className="text-center mb-5 space-y-1">
+        <div className="text-center mb-4 space-y-1">
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
             {formattedRole}
           </span>
           <h1 className="text-2xl font-extrabold text-slate-900">
             Candidate Verification
           </h1>
+          <p className="text-xs text-slate-500">
+            Showcase your technical competence in an industry-standard environment.
+          </p>
         </div>
 
-        {/* Exam Guidelines & Warning Box */}
-        <div className="mb-4 bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3.5 text-xs text-amber-900 space-y-2">
-          <div className="flex items-center space-x-1.5 font-bold text-amber-950">
-            <FiAlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>Strict Integrity & Proctoring Rules:</span>
+        {/* Positive Motivation & Trust-Booster Banner */}
+        <div className="mb-4 bg-emerald-50/90 border border-emerald-200 rounded-2xl p-3.5 text-xs text-emerald-900 space-y-2 shadow-2xs">
+          <div className="flex items-center space-x-1.5 font-bold text-emerald-950">
+            <FiAward className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Standardized Technical Challenge</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-amber-800">
+
+          <div className="flex items-center justify-between text-[11px] text-emerald-800 font-medium px-1">
             <span className="flex items-center">
-              <FiClock className="mr-1.5 text-amber-700 shrink-0" /> 30 Min Timer
+              <FiClock className="mr-1 text-emerald-700 shrink-0" /> 30-Min Focused Test
             </span>
             <span className="flex items-center">
-              <FiVideo className="mr-1.5 text-amber-700 shrink-0" /> Active Webcam
+              <FiVideo className="mr-1 text-emerald-700 shrink-0" /> Live Webcam Proctored
+            </span>
+            <span className="flex items-center">
+              <FiTarget className="mr-1 text-emerald-700 shrink-0" /> 10 Core Questions
             </span>
           </div>
-          <p className="text-[11px] text-amber-800/90 leading-tight">
-            Do not switch browser tabs or move away from camera view. Violations will result in immediate disqualification.
+
+          <p className="text-[11px] text-emerald-700 leading-normal border-t border-emerald-200/60 pt-1.5">
+            Stay confident and focused in a single tab. Your genuine skills and problem-solving ability directly qualify you for top partner hiring rounds!
           </p>
         </div>
 
@@ -263,7 +272,7 @@ export default function AssessmentGateway() {
             <span>Candidate Notice:</span>
           </div>
           <p>
-            <strong>Note:</strong> InternAdda may charge a small evaluation fee (₹20–₹30), which is not a hiring fee charged by UpForge. If you qualify through a fair, non-AI assessment, the amount will be refunded as per InternAdda’s policy.
+            <strong>Note:</strong> InternAdda may charge a small evaluation fee (₹10–₹29), which is not a hiring fee charged by UpForge. If you qualify through a fair, non-AI assessment, the amount will be refunded as per InternAdda’s policy.
           </p>
           <p className="pt-1 border-t border-slate-100 font-mono text-[10px] text-slate-500">
             For any payment or refund-related clarification, please contact{" "}
