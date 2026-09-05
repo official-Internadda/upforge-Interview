@@ -9,12 +9,77 @@ dotenv.config();
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Cashfree Production Credentials
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || "11077281f181acdf5262a38723e8277011";
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || "cfsk_ma_prod_07a74006fac339b18a4b690c5b9f68b9_2e31571c";
 const CASHFREE_BASE_URL = "https://api.cashfree.com/pg";
+
+// ---------------- MULTI-API KEY FALLBACK POOL ---------------- //
+// Yahan aap 2 se 4 keys daal sakte hain (comma-separated ya multiple env variables)
+const API_KEYS = [
+  process.env.GROQ_API_KEY,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+].filter(Boolean);
+
+// Default fallback agar env set na ho
+if (API_KEYS.length === 0 && process.env.GROQ_API_KEY) {
+  API_KEYS.push(process.env.GROQ_API_KEY);
+}
+
+const CHAT_MODELS = [
+  "qwen/qwen3.8-27b",
+  "qwen/qwen3.6-27b",
+  "groq/compound-mini",
+  "groq/compound",
+];
+
+// Helper to safely rotate keys and models if 429 or quota hit
+async function runGroqChatMultiKey(messages, maxTokens = 450, temperature = 0.4) {
+  let lastError = null;
+
+  for (let keyIndex = 0; keyIndex < API_KEYS.length; keyIndex++) {
+    const currentKey = API_KEYS[keyIndex];
+    const client = new Groq({ apiKey: currentKey });
+
+    for (const model of CHAT_MODELS) {
+      try {
+        const response = await client.chat.completions.create({
+          model,
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+        });
+
+        let reply = response.choices?.[0]?.message?.content || "";
+
+        if (!reply && response.choices?.[0]?.message?.tool_calls?.length) {
+          const toolCall = response.choices[0].message.tool_calls[0];
+          try {
+            const parsed = JSON.parse(toolCall.function.arguments);
+            reply = parsed.text || parsed.message || parsed.reply || Object.values(parsed)[0];
+          } catch {
+            reply = toolCall.function.arguments;
+          }
+        }
+
+        if (reply) {
+          return { reply, modelUsed: model, keyUsedIndex: keyIndex };
+        }
+      } catch (err) {
+        console.warn(`Key #${keyIndex + 1} with Model ${model} failed:`, err?.status || err?.message);
+        lastError = err;
+        // Agar rate limit (429) hai to agle key par switch karein
+        if (err?.status === 429) {
+          break; // Try next key
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error("All Groq API keys and models exhausted.");
+}
 
 app.use(
   cors({
@@ -26,44 +91,6 @@ app.use(
 
 app.options("*", cors());
 app.use(express.json());
-
-const CHAT_MODELS = [
-  "qwen/qwen3.8-27b",
-  "qwen/qwen3.6-27b",
-  "groq/compound-mini",
-  "groq/compound",
-];
-
-async function runGroqChat(messages, maxTokens = 400, temperature = 0.5) {
-  let lastError = null;
-  for (const model of CHAT_MODELS) {
-    try {
-      const response = await groq.chat.completions.create({
-        model,
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-      });
-
-      let reply = response.choices?.[0]?.message?.content || "";
-      if (!reply && response.choices?.[0]?.message?.tool_calls?.length) {
-        const toolCall = response.choices[0].message.tool_calls[0];
-        try {
-          const parsed = JSON.parse(toolCall.function.arguments);
-          reply = parsed.text || parsed.message || parsed.reply || Object.values(parsed)[0];
-        } catch {
-          reply = toolCall.function.arguments;
-        }
-      }
-
-      if (reply) return { reply, modelUsed: model };
-    } catch (err) {
-      console.warn(`Model ${model} error:`, err?.message || err);
-      lastError = err;
-    }
-  }
-  throw lastError || new Error("All AI models failed to respond.");
-}
 
 // ---------------- CASHFREE PAYMENT (₹29) ---------------- //
 app.post("/create-order", async (req, res) => {
@@ -78,7 +105,7 @@ app.post("/create-order", async (req, res) => {
 
   const payload = {
     order_id: orderId,
-    order_amount: 29.0, // Set to ₹29
+    order_amount: 29.0,
     order_currency: "INR",
     customer_details: {
       customer_id: "CUST_" + Date.now(),
@@ -178,7 +205,7 @@ app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   }
 });
 
-// ---------------- TECHNICAL TERMINAL ENGINE ---------------- //
+// ---------------- RE-ENGINEERED TECHNICAL TERMINAL ENGINE ---------------- //
 app.post("/chat", async (req, res) => {
   const { messages, resumeText, role } = req.body;
 
@@ -186,38 +213,44 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "Assessment role is required." });
   }
 
-  const safeResume = resumeText || "General Candidate with no specific resume text provided.";
+  const safeResume = resumeText || "General Candidate with foundational tech stack.";
 
-  const systemPrompt = `You are a Principal Technical Interviewer and Evaluation Lead conducting a comprehensive 10-Question Technical Terminal Assessment for the role of "${role}".
+  // High-bar prompt with strict indentation & layout
+  const systemPrompt = `You are a Principal Tech Lead and Bar-Raiser conducting a demanding, real-world 10-Question Technical Assessment for the role of "${role}".
 Candidate Resume Context:
-=== RESUME START ===
+=== CANDIDATE RESUME ===
 ${safeResume}
-=== RESUME END ===
+=== END RESUME ===
 
-OPERATIONAL RULES:
-1. Speak in a crisp, direct, enterprise technical interviewer tone.
-2. Ask strictly 10 questions sequentially.
-3. Every question must test real-world depth: architecture, syntax edge cases, performance bottlenecks, databases, or specific tooling mentioned in the candidate's resume.
-4. Turn 1: Professional greeting. Call out a specific technology/project from their resume and ask a deep conceptual or diagnostic question.
-5. Turns 2 to 9: Critically review their submitted response or code. If superficial, probe their logic or ask how they would resolve failure conditions.
-6. Ask EXACTLY ONE question at a time. Maximum 2 to 3 sentences per turn.
-7. Turn 10 Completion: When the assessment concludes, say: "Thank you. Your assessment telemetry and terminal responses have been indexed." followed by [ASSESSMENT_COMPLETE].`;
+FORMATTING & INTERVIEW RULES:
+1. ALWAYS present every question with clear structured sections and clean line breaks:
+   • Brief professional comment on their previous answer (or greeting for Turn 1).
+   • [SCENARIO]: Real-world system scale, database lock, latency constraint, or framework architecture issue derived specifically from technologies on their resume.
+   • [PROBLEM]: The exact bottleneck, race condition, data inconsistency, or algorithmic challenge.
+   • [QUESTION]: A direct, specific question asking how they would solve or architect this (ask for logic, queries, or pseudocode).
+2. DO NOT output dense unformatted paragraphs. Use bullet points and line breaks so it is easily readable in a terminal.
+3. HANDLING TRIVIAL/CASUAL REPLIES:
+   • If the candidate replies with casual text like "hey", "ok", "hi", or gives a vague one-line response, DO NOT advance the question count.
+   • Push back firmly and professionally: Explain that this is a technical assessment and demand their technical solution to the previous problem before proceeding.
+4. Strictly ask ONE question per turn.
+5. After exactly 10 answered technical rounds, terminate gracefully with:
+   "Assessment concluded. Compiling technical telemetry and metrics for the hiring committee." followed immediately by [ASSESSMENT_COMPLETE].`;
 
   let chatMessages = [];
   if (!messages || messages.length === 0) {
     chatMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "ASSESSMENT_START: Candidate is verified and active at the terminal." }
+      { role: "user", content: "ASSESSMENT_START: Candidate is verified at the terminal. Greet and present Question 1 based on their resume project." }
     ];
   } else {
     chatMessages = [{ role: "system", content: systemPrompt }, ...messages];
     if (chatMessages[chatMessages.length - 1].role !== "user") {
-      chatMessages.push({ role: "user", content: "Proceed with the next technical question." });
+      chatMessages.push({ role: "user", content: "Evaluate my response and present the next challenge." });
     }
   }
 
   try {
-    const { reply } = await runGroqChat(chatMessages, 350, 0.5);
+    const { reply } = await runGroqChatMultiKey(chatMessages, 450, 0.4);
     const isComplete = reply.includes("[ASSESSMENT_COMPLETE]");
     const cleanReply = reply.replace("[ASSESSMENT_COMPLETE]", "").trim();
 
@@ -228,7 +261,7 @@ OPERATIONAL RULES:
   }
 });
 
-// ---------------- EVALUATION REPORT ENGINE ---------------- //
+// ---------------- CANDIDATE REPORT ENGINE ---------------- //
 app.post("/generate-report", async (req, res) => {
   const { transcript, role, candidateName } = req.body;
 
@@ -240,22 +273,22 @@ app.post("/generate-report", async (req, res) => {
     .map((m) => `${m.role === "assistant" ? "Examiner" : "Candidate"}: ${m.content}`)
     .join("\n");
 
-  const reportPrompt = `You are the Engineering Director reviewing an assessment for "${role}" candidate "${candidateName || "Candidate"}".
+  const reportPrompt = `You are an Executive Hiring Committee Director reviewing an assessment for "${role}" candidate "${candidateName || "Candidate"}".
 Transcript:
 ${conversationText}
 
-Generate a rigorous evaluation report formatted strictly as raw JSON:
+Generate a candid evaluation report formatted strictly as raw JSON:
 {
   "overallScore": 8,
   "recommendation": "Recommend",
-  "summary": "Candidate demonstrated solid grasp of practical problem solving.",
+  "summary": "Candidate demonstrated solid grasp of system fundamentals and edge-case handling.",
   "technicalScore": 8,
-  "problemSolvingScore": 7,
-  "codeQualityScore": 8,
-  "strengths": ["Domain Fundamentals", "Clear Algorithmic Reasoning"],
-  "weaknesses": ["Deep dive on distributed edge cases"],
-  "detailedFeedback": "The candidate provided direct answers and demonstrated practical problem-solving capability.",
-  "hiringNotes": "Forward to engineering hiring team."
+  "problemSolvingScore": 8,
+  "codeQualityScore": 7,
+  "strengths": ["Domain Architecture", "Logical Clarity"],
+  "weaknesses": ["Further depth needed on scale bottlenecks"],
+  "detailedFeedback": "The candidate provided practical answers to core architectural questions.",
+  "hiringNotes": "Proceed to engineering interview round."
 }`;
 
   try {
@@ -264,7 +297,7 @@ Generate a rigorous evaluation report formatted strictly as raw JSON:
       { role: "user", content: reportPrompt },
     ];
 
-    const { reply } = await runGroqChat(reportMessages, 1000, 0.2);
+    const { reply } = await runGroqChatMultiKey(reportMessages, 1000, 0.2);
     const jsonMatch = reply.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON parsed.");
 
@@ -276,7 +309,7 @@ Generate a rigorous evaluation report formatted strictly as raw JSON:
   }
 });
 
-app.get("/", (req, res) => res.json({ status: "InternAdda Engine Running 🚀" }));
+app.get("/", (req, res) => res.json({ status: "InternAdda Engine Running with Multi-Key Pool ⚡" }));
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () =>
