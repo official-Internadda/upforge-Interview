@@ -33,7 +33,7 @@ const CHAT_MODELS = [
   "groq/compound",
 ];
 
-async function runGroqChatMultiKey(messages, maxTokens = 350, temperature = 0.35) {
+async function runGroqChatMultiKey(messages, maxTokens = 350, temperature = 0.4) {
   let lastError = null;
 
   for (let keyIndex = 0; keyIndex < API_KEYS.length; keyIndex++) {
@@ -88,7 +88,7 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Cashfree Payment
+// ---------------- CASHFREE PAYMENT (₹29) ---------------- //
 app.post("/create-order", async (req, res) => {
   const { candidateName, role } = req.body;
 
@@ -167,7 +167,7 @@ app.post("/verify-order", async (req, res) => {
   }
 });
 
-// Resume PDF Parser
+// ---------------- RESUME PDF EXTRACTOR ---------------- //
 async function extractTextFromPDF(buffer) {
   const uint8Array = new Uint8Array(buffer);
   const pdf = await getDocument({ data: uint8Array }).promise;
@@ -201,7 +201,7 @@ app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   }
 });
 
-// Crisp, High-Difficulty Technical Terminal Engine
+// ---------------- ADAPTIVE & NATURAL TECHNICAL TERMINAL ENGINE ---------------- //
 app.post("/chat", async (req, res) => {
   const { messages, resumeText, role } = req.body;
 
@@ -209,52 +209,51 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "Assessment role is required." });
   }
 
-  const safeResume = resumeText || "Candidate with software engineering & data systems background.";
+  const safeResume = resumeText || "Candidate with technical engineering & analytics projects.";
 
-  const systemPrompt = `You are a Principal Technical Interviewer conducting a rigorous, 10-question technical terminal assessment for "${role}".
+  const systemPrompt = `You are a Senior Engineering Lead and Technical Interviewer conducting a realistic, conversational 10-turn interview for the role of "${role}".
 Candidate Resume:
 === RESUME ===
 ${safeResume}
 === END ===
 
-FORMATTING & EXECUTION RULES:
-1. Do NOT use conversational fluff, greetings after Turn 1, or dense walls of markdown bolding (**).
-2. Keep questions concise, sharp, aesthetically clean, and technically challenging.
-3. Always format your output strictly into these 3 compact, indented sections:
+CRITICAL OPERATIONAL RULES:
 
-[CHALLENGE #X] — Short 1-line architecture context directly derived from their resume stack.
+1. USER INTENT DETECTION:
+   • If candidate says "skip", "next", "pass", "don't know", or "aage badho": Acknowledge smoothly ("No problem, let's move forward.") and immediately present the next question. Do not lecture.
+   • If candidate says "end", "stop", "finish", "submit", "wrap up", or wants to conclude early: Say: "Understood. Wrapping up your assessment and recording your telemetry for review." followed immediately by [ASSESSMENT_COMPLETE].
+   • If candidate gives a purely casual greeting like "hey" or "hi": Politely say: "Welcome. Let's dive right into the technical evaluation." and proceed to Question 1.
 
-[SCENARIO & CONSTRAINTS]
-• Scale / Setup: Specific scale, memory limit, table size, or concurrency condition.
-• Failure Mode: Specific bottleneck, edge-case (0/NULL values), race condition, or latency spike.
+2. QUESTION MIX (NATURAL & ADAPTIVE):
+   • Mix 5 to 6 hard, practical scenario-based challenges with 3 to 4 core conceptual/foundational questions (e.g. debugging strategies, testing workflows, concurrency, or language internals).
+   • DEEP FOLLOW-UPS: Each question should organically reference the candidate's previous response. (e.g. "You mentioned using Redis for caching in your last answer. What happens if the cache stampede occurs during a traffic surge?").
+   • Derive questions directly from their actual resume stack (libraries, databases, architecture).
 
-[YOUR SOLUTION]
-Ask for the exact logic, SQL query, code block, or tradeoff choice in 1 to 2 sentences.
+3. FORMATTING & TONE:
+   • Keep it short, crisp, and conversational (3 to 5 lines maximum).
+   • Do NOT use robotic repeated tags like [SCENARIO], [PROBLEM], [QUESTION].
+   • Bold key technical terms sparingly. Use clear line breaks and bullet points so it is effortless to read in the terminal.
+   • Ask strictly ONE question at a time.
 
-4. CASUAL / IRRELEVANT INPUT HANDLING:
-If candidate replies with casual text ("hey", "ok", "sql is useless", or evasive remarks), write strictly ONE sentence:
-"This is a technical assessment round. Please provide your technical architecture or code for [CHALLENGE #X] above to proceed."
-(Do not count this as an answered question).
-
-5. Ask strictly ONE challenge at a time.
-6. After 10 technical challenges are completed, conclude strictly with:
-"Assessment concluded. Telemetry and code metrics indexed for the hiring committee." followed by [ASSESSMENT_COMPLETE].`;
+4. WRAP-UP:
+   • After 10 completed technical interactions, conclude with:
+   "Thank you. Your assessment telemetry and responses have been successfully compiled for the hiring panel." followed immediately by [ASSESSMENT_COMPLETE].`;
 
   let chatMessages = [];
   if (!messages || messages.length === 0) {
     chatMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "START_ASSESSMENT: Present Challenge #1 targeting a complex system or tool mentioned on my resume." }
+      { role: "user", content: "ASSESSMENT_START: Greet briefly and begin with Question 1 referencing a core project/skill from my resume." }
     ];
   } else {
     chatMessages = [{ role: "system", content: systemPrompt }, ...messages];
     if (chatMessages[chatMessages.length - 1].role !== "user") {
-      chatMessages.push({ role: "user", content: "Evaluate my answer and present the next challenge." });
+      chatMessages.push({ role: "user", content: "Evaluate my response and ask the next question." });
     }
   }
 
   try {
-    const { reply } = await runGroqChatMultiKey(chatMessages, 350, 0.35);
+    const { reply } = await runGroqChatMultiKey(chatMessages, 350, 0.4);
     const isComplete = reply.includes("[ASSESSMENT_COMPLETE]");
     const cleanReply = reply.replace("[ASSESSMENT_COMPLETE]", "").trim();
 
@@ -265,7 +264,7 @@ If candidate replies with casual text ("hey", "ok", "sql is useless", or evasive
   }
 });
 
-// Candidate Report Engine
+// ---------------- CANDIDATE REPORT ENGINE ---------------- //
 app.post("/generate-report", async (req, res) => {
   const { transcript, role, candidateName } = req.body;
 
@@ -281,17 +280,17 @@ app.post("/generate-report", async (req, res) => {
 Transcript:
 ${conversationText}
 
-Generate a candid evaluation report formatted strictly as raw JSON:
+Generate a fair evaluation report formatted strictly as raw JSON:
 {
   "overallScore": 8,
   "recommendation": "Recommend",
-  "summary": "Candidate demonstrated solid grasp of system fundamentals and edge-case handling.",
+  "summary": "Candidate demonstrated solid domain fundamentals and practical problem-solving.",
   "technicalScore": 8,
   "problemSolvingScore": 8,
   "codeQualityScore": 7,
-  "strengths": ["Domain Architecture", "Logical Clarity"],
-  "weaknesses": ["Further depth needed on scale bottlenecks"],
-  "detailedFeedback": "The candidate provided practical answers to core architectural questions.",
+  "strengths": ["Clear Architecture Understanding", "Logical Reasoning"],
+  "weaknesses": ["Further depth needed on extreme edge cases"],
+  "detailedFeedback": "The candidate provided practical answers across scenarios and fundamentals.",
   "hiringNotes": "Proceed to engineering interview round."
 }`;
 
