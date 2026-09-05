@@ -319,8 +319,7 @@ export default function TerminalRoom() {
         <div className="flex items-center space-x-3 truncate max-w-[50%]">
           <span className="font-extrabold text-blue-600 text-base sm:text-lg">InternAdda</span>
           <span className="text-slate-300">|</span>
-          <span className="font-bold text-slate-900 text-sm sm:text-base truncate">{session?.role}</span>
-          <span className="text-slate-500 text-xs sm:text-sm">({session?.candidateName})</span>
+          <span className="font-bold text-slate-800 text-sm sm:text-base truncate">{session?.candidateName}</span>
         </div>
 
         <div className="flex items-center space-x-3 sm:space-x-5">
