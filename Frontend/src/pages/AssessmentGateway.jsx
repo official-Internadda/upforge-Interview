@@ -263,7 +263,7 @@ export default function AssessmentGateway() {
             <span>Candidate Notice:</span>
           </div>
           <p>
-            <strong>Note:</strong> InternAdda may charge a small evaluation fee (₹10–₹29), which is not a hiring fee charged by UpForge. If you qualify through a fair, non-AI assessment, the amount will be refunded as per InternAdda’s policy.
+            <strong>Note:</strong> InternAdda may charge a small evaluation fee (₹20–₹30), which is not a hiring fee charged by UpForge. If you qualify through a fair, non-AI assessment, the amount will be refunded as per InternAdda’s policy.
           </p>
           <p className="pt-1 border-t border-slate-100 font-mono text-[10px] text-slate-500">
             For any payment or refund-related clarification, please contact{" "}
