@@ -4,14 +4,14 @@ import { db } from "../firebase";
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
 import {
   FiClock,
-  FiShield,
   FiSend,
   FiCameraOff,
   FiAlertTriangle,
   FiMaximize2,
   FiMinimize2,
   FiExternalLink,
-  FiMail
+  FiMail,
+  FiTerminal
 } from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
@@ -31,7 +31,7 @@ export default function TerminalRoom() {
   const [isTerminated, setIsTerminated] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
-  const [redirectCountdown, setRedirectCountdown] = useState(30); // 30 Seconds Countdown
+  const [redirectCountdown, setRedirectCountdown] = useState(30);
 
   // Proctoring States
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -44,6 +44,18 @@ export default function TerminalRoom() {
   const timerRef = useRef(null);
   const localStreamRef = useRef(null);
 
+  // 1. Prevent Back Button
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+      navigate("/", { replace: true });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [navigate]);
+
+  // 2. Validate Session
   useEffect(() => {
     async function load() {
       try {
@@ -51,26 +63,32 @@ export default function TerminalRoom() {
         const snap = await getDocs(q);
         if (!snap.empty) {
           const docData = snap.docs[0].data();
+
           if (docData.paymentStatus !== "PAID") {
-            navigate(`/test/${docData.role?.toLowerCase() || "general"}`);
+            navigate(`/test/${docData.role?.toLowerCase() || "general"}`, { replace: true });
             return;
           }
+
+          if (docData.status === "completed" || docData.status === "terminated") {
+            navigate("/", { replace: true });
+            return;
+          }
+
           setSession(docData);
           setDocId(snap.docs[0].id);
-          if (docData.status === "completed") setIsComplete(true);
-          if (docData.status === "terminated") setIsTerminated(true);
         } else {
-          navigate("/");
+          navigate("/", { replace: true });
         }
       } catch (e) {
         console.error(e);
+        navigate("/", { replace: true });
       }
       setLoading(false);
     }
     load();
-  }, [sessionId]);
+  }, [sessionId, navigate]);
 
-  // Hardware Camera & 3-Strike Tab Guard
+  // 3. Camera & 3-Strike Tab Guard
   useEffect(() => {
     if (!docId || isComplete || isTerminated) return;
 
@@ -135,7 +153,7 @@ export default function TerminalRoom() {
     }
   }, [camCollapsed, cameraEnabled]);
 
-  // 30-Minute Timer
+  // 4. 30-Minute Timer
   useEffect(() => {
     if (loading || isComplete || isTerminated) return;
     timerRef.current = setInterval(() => {
@@ -166,7 +184,7 @@ export default function TerminalRoom() {
     }
   }
 
-  // 30-Second Auto-Redirect to upforge.org on Completion
+  // 5. 30-Sec Auto Redirect
   useEffect(() => {
     if (!isComplete) return;
 
@@ -178,7 +196,7 @@ export default function TerminalRoom() {
       setRedirectCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(countdownInterval);
-          window.location.href = "https://upforge.org";
+          window.location.replace("https://upforge.org");
           return 0;
         }
         return prev - 1;
@@ -188,7 +206,7 @@ export default function TerminalRoom() {
     return () => clearInterval(countdownInterval);
   }, [isComplete]);
 
-  // Trigger First Question
+  // 6. Trigger Question 1
   useEffect(() => {
     if (session && messages.length === 0) {
       askTerminalAI([]);
@@ -296,9 +314,15 @@ export default function TerminalRoom() {
         <div className="max-w-md w-full p-8 rounded-3xl bg-white border border-red-200 text-center shadow-lg">
           <FiAlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-3" />
           <h2 className="text-xl font-bold text-red-700">ASSESSMENT TERMINATED</h2>
-          <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+          <p className="text-xs text-slate-600 mt-2 leading-relaxed mb-6">
             Integrity protocols recorded 3 window switches. This session is locked and registered as invalid.
           </p>
+          <button
+            onClick={() => navigate("/", { replace: true })}
+            className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold"
+          >
+            Return to Home
+          </button>
         </div>
       </div>
     );
@@ -345,41 +369,46 @@ export default function TerminalRoom() {
       {/* Workspace */}
       <div className="flex-1 flex flex-col sm:flex-row overflow-hidden relative">
         {/* Terminal Chat Area */}
-        <div className="flex-1 flex flex-col overflow-hidden pb-44 sm:pb-36">
-          <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-5 sm:pr-80">
-            <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-slate-600 text-xs sm:text-sm leading-relaxed">
-              * Assessment active for <span className="font-bold text-slate-900">{session?.candidateName}</span>. Type your solutions or code directly into the buffer below.
+        <div className="flex-1 flex flex-col overflow-hidden pb-48 sm:pb-40">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 sm:pr-80">
+            <div className="p-4 bg-white rounded-2xl border border-slate-200 text-slate-600 text-xs sm:text-sm flex items-center space-x-2 shadow-2xs">
+              <FiTerminal className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>
+                Assessment active for <strong className="text-slate-900">{session?.candidateName}</strong>. Format your solutions cleanly in the terminal buffer below.
+              </span>
             </div>
 
             {messages.map((m, idx) => (
               <div
                 key={idx}
-                className={`p-5 sm:p-6 rounded-2xl border ${
+                className={`p-5 sm:p-7 rounded-3xl border transition-all ${
                   m.role === "assistant"
-                    ? "bg-white border-slate-200 text-slate-900 shadow-xs"
-                    : "bg-blue-50 border-blue-200 text-blue-950 font-mono"
+                    ? "bg-white border-slate-200 text-slate-900 shadow-sm"
+                    : "bg-blue-50/90 border-blue-200 text-blue-950 font-mono shadow-2xs"
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-xs sm:text-sm uppercase tracking-wider text-slate-500">
-                    {m.role === "assistant" ? "Examiner Question" : "Candidate Buffer"}
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                  <span className={`font-bold text-xs uppercase tracking-wider ${m.role === "assistant" ? "text-blue-700" : "text-slate-600"}`}>
+                    {m.role === "assistant" ? "⚡ Technical Examiner Challenge" : "Candidate Code / Response"}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">#{(idx + 1).toString().padStart(2, "0")}</span>
+                  <span className="text-xs text-slate-400 font-mono font-semibold">#{(idx + 1).toString().padStart(2, "0")}</span>
                 </div>
-                <div className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-medium">
+
+                {/* Structured Text Render with clean line breaks */}
+                <div className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal space-y-2">
                   {m.content}
                 </div>
               </div>
             ))}
 
             {thinking && (
-              <div className="p-4 bg-white border border-slate-200 rounded-xl text-blue-600 flex items-center space-x-3 animate-pulse text-sm font-medium">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl text-blue-600 flex items-center space-x-3 animate-pulse text-sm font-medium shadow-xs">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></span>
-                <span>AI Examiner is evaluating solution & generating next question...</span>
+                <span>AI Examiner is analyzing your architectural trade-offs...</span>
               </div>
             )}
 
-            {/* Assessment Completed Modal / Banner */}
+            {/* Assessment Completed Card */}
             {isComplete && (
               <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-emerald-500/40 text-slate-900 shadow-xl space-y-4 mt-4">
                 <div className="flex items-center space-x-2.5 text-emerald-700">
@@ -494,7 +523,7 @@ export default function TerminalRoom() {
                     }
                   }}
                   disabled={thinking}
-                  placeholder="Type your response, explanation, or code here... (Shift+Enter for newline, Enter to submit)"
+                  placeholder="Type your explanation, logic, or code here... (Shift+Enter for newline, Enter to submit)"
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm sm:text-base font-mono resize-none focus:outline-none focus:border-blue-600 focus:bg-white text-slate-900 transition"
                   rows={2}
                 />
