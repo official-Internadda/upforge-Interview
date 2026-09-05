@@ -20,7 +20,9 @@ import {
   FiHelpCircle,
   FiXCircle,
   FiMenu,
-  FiX
+  FiX,
+  FiExternalLink,
+  FiCheckSquare
 } from "react-icons/fi";
 
 export default function Home() {
@@ -94,9 +96,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-600 selection:text-white">
-      {/* Top Corporate Status Ribbon */}
-      <div className="bg-slate-900 text-slate-300 py-2.5 px-4 text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      {/* Top Corporate Status Ribbon (DESKTOP ONLY - Hidden on Mobile) */}
+      <div className="hidden md:block bg-slate-900 text-slate-300 py-2.5 px-4 text-xs">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="font-semibold text-white">InternAdda Standardized Assessment Gateway</span>
@@ -132,7 +134,15 @@ export default function Home() {
             <a href="#tracks" className="hover:text-blue-600 transition">Assessment Tracks</a>
             <a href="#proctoring" className="hover:text-blue-600 transition">Proctoring & Rules</a>
             <a href="#refund-policy" className="hover:text-blue-600 transition">Deposit & T&C</a>
-            <a href="#partners" className="hover:text-blue-600 transition">Hiring Partners</a>
+            <a
+              href="https://upforge.org/quiz"
+              target="_blank"
+              rel="noreferrer"
+              className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-100 transition flex items-center space-x-1"
+            >
+              <span>Free Quiz</span>
+              <FiExternalLink className="w-3 h-3" />
+            </a>
           </nav>
 
           <div className="hidden md:flex items-center space-x-3">
@@ -146,61 +156,95 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+            className="md:hidden p-2.5 text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200"
+            aria-label="Toggle navigation"
           >
             {mobileMenuOpen ? <FiX className="w-6 h-6" /> : <FiMenu className="w-6 h-6" />}
           </button>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* High-End Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-b border-slate-200 px-6 py-5 space-y-3.5 shadow-lg">
+          <div className="md:hidden bg-white border-b border-slate-200 px-5 py-6 space-y-4 shadow-xl animate-fade-in">
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 block">
+                Quick Navigation
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-700">
+                <a
+                  href="#how-it-works"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center space-x-1.5"
+                >
+                  <FiCpu className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>How It Works</span>
+                </a>
+                <a
+                  href="#tracks"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center space-x-1.5"
+                >
+                  <FiCode className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Tracks</span>
+                </a>
+                <a
+                  href="#proctoring"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center space-x-1.5"
+                >
+                  <FiShield className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Proctoring</span>
+                </a>
+                <a
+                  href="#refund-policy"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center space-x-1.5"
+                >
+                  <FiRotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Deposit T&C</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Direct Free Quiz Card in Mobile Menu */}
             <a
-              href="#how-it-works"
+              href="https://upforge.org/quiz"
+              target="_blank"
+              rel="noreferrer"
               onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700"
+              className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs font-bold text-emerald-900 transition hover:bg-emerald-100"
             >
-              How It Works
+              <div className="flex items-center space-x-2">
+                <FiCheckSquare className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <div className="font-bold">Take Free Practice Quiz</div>
+                  <div className="text-[10px] text-emerald-700 font-normal">Self-test on upforge.org/quiz</div>
+                </div>
+              </div>
+              <FiExternalLink className="w-4 h-4 text-emerald-700" />
             </a>
-            <a
-              href="#tracks"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700"
-            >
-              Assessment Tracks
-            </a>
-            <a
-              href="#proctoring"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700"
-            >
-              Proctoring Standards
-            </a>
-            <a
-              href="#refund-policy"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-sm font-semibold text-slate-700"
-            >
-              Deposit & Refund T&C
-            </a>
+
+            {/* Start Assessment CTA */}
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
                 document.getElementById("tracks")?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold shadow-md shadow-blue-500/20 flex items-center justify-center space-x-1.5"
             >
-              Select Your Assessment Track
+              <span>Choose Assessment Track</span>
+              <FiArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <section className="py-14 sm:py-24 max-w-7xl mx-auto px-4 sm:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           <div className="lg:col-span-7 space-y-6">
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
               <FiAward className="text-blue-600" />
@@ -234,19 +278,19 @@ export default function Home() {
               </a>
             </div>
 
-            {/* Quick Metrics Bar */}
-            <div className="pt-8 border-t border-slate-200 grid grid-cols-3 gap-4">
-              <div>
-                <div className="text-2xl font-black text-slate-900 font-mono">30 Min</div>
-                <div className="text-xs text-slate-500 mt-0.5">Hardware-Proctored Window</div>
+            {/* Quick Metrics Bar (Updated with 10 Qs) */}
+            <div className="pt-8 border-t border-slate-200 grid grid-cols-3 gap-3 sm:gap-4 text-left">
+              <div className="p-3 sm:p-0 bg-slate-50 sm:bg-transparent rounded-2xl border sm:border-0 border-slate-100">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">30 Min</div>
+                <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5">Hardware Window</div>
               </div>
-              <div>
-                <div className="text-2xl font-black text-slate-900 font-mono">10 Turns</div>
-                <div className="text-xs text-slate-500 mt-0.5">Progressive Technical Depth</div>
+              <div className="p-3 sm:p-0 bg-slate-50 sm:bg-transparent rounded-2xl border sm:border-0 border-slate-100">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono">10 Qs</div>
+                <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5">Role-Specific Logic</div>
               </div>
-              <div>
-                <div className="text-2xl font-black text-blue-600 font-mono">100%</div>
-                <div className="text-xs text-slate-500 mt-0.5">Refund on Passing T&C</div>
+              <div className="p-3 sm:p-0 bg-slate-50 sm:bg-transparent rounded-2xl border sm:border-0 border-slate-100">
+                <div className="text-xl sm:text-2xl font-black text-blue-600 font-mono">100%</div>
+                <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5">Refund on T&C</div>
               </div>
             </div>
           </div>
@@ -311,13 +355,13 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
             {partners.map((p, idx) => (
               <div
                 key={idx}
-                className="bg-white border border-slate-200 p-5 rounded-2xl text-center shadow-2xs hover:shadow-sm transition flex flex-col items-center justify-center"
+                className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl text-center shadow-2xs hover:shadow-sm transition flex flex-col items-center justify-center"
               >
-                <div className="w-14 h-14 mb-3 rounded-xl border border-slate-100 flex items-center justify-center bg-slate-50 p-1 overflow-hidden">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 mb-2.5 rounded-xl border border-slate-100 flex items-center justify-center bg-slate-50 p-1 overflow-hidden">
                   <img
                     src={p.logo}
                     alt={p.name}
@@ -328,7 +372,7 @@ export default function Home() {
                     }}
                   />
                 </div>
-                <div className="font-bold text-sm text-slate-900">{p.name}</div>
+                <div className="font-bold text-xs sm:text-sm text-slate-900">{p.name}</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">{p.tag}</div>
               </div>
             ))}
@@ -337,8 +381,8 @@ export default function Home() {
       </section>
 
       {/* How It Works - Step-by-Step Lifecycle */}
-      <section id="how-it-works" className="py-20 max-w-7xl mx-auto px-4 sm:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-2">
+      <section id="how-it-works" className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-8">
+        <div className="text-center max-w-3xl mx-auto mb-14 space-y-2">
           <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
             End-to-End Process
           </span>
@@ -350,14 +394,14 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
           <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-3">
             <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white font-bold font-mono flex items-center justify-center text-sm">
               01
             </div>
             <h3 className="text-base font-bold text-slate-900">Attach Resume PDF</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Enter your legal name and upload your PDF resume. Our parsing engine extracts your frameworks, past projects, and core technical skills.
+              Enter your name and upload your PDF resume. Our parsing engine extracts your frameworks, past projects, and core technical skills.
             </p>
           </div>
 
@@ -394,7 +438,7 @@ export default function Home() {
       </section>
 
       {/* Assessment Tracks Grid */}
-      <section id="tracks" className="py-20 bg-slate-50 border-y border-slate-200">
+      <section id="tracks" className="py-16 sm:py-20 bg-slate-50 border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
             <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
@@ -478,7 +522,7 @@ export default function Home() {
       </section>
 
       {/* Proctoring & Integrity Deep Dive */}
-      <section id="proctoring" className="py-20 max-w-7xl mx-auto px-4 sm:px-8">
+      <section id="proctoring" className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-8">
         <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
           <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
             Fair & Transparent Testing
@@ -527,13 +571,13 @@ export default function Home() {
       {/* Deposit & 100% Refund Terms & Conditions Section */}
       <section id="refund-policy" className="py-16 bg-slate-50 border-t border-slate-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-sm space-y-8">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-12 shadow-sm space-y-8">
             <div className="flex items-center space-x-3 text-emerald-700">
               <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                 <FiRotateCcw className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-extrabold text-slate-900">₹29 Security Deposit: 100% Refund Policy & Terms</h3>
+                <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">₹29 Security Deposit: 100% Refund Policy & Terms</h3>
                 <span className="text-xs font-semibold text-emerald-700">Strict Anti-Cheating & Integrity Protocol</span>
               </div>
             </div>
@@ -589,31 +633,37 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Comprehensive Corporate Footer */}
+      {/* Mobile-Optimized Corporate Footer */}
       <footer className="border-t border-slate-200 bg-white py-12 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
             <div className="flex items-center space-x-3">
               <img src="/logo.jpg" alt="Logo" className="h-8 w-auto rounded object-contain" onError={(e) => { e.target.style.display = "none"; }} />
-              <span className="font-bold text-slate-900 text-sm">InternAdda Career Innovations</span>
+              <div className="text-left">
+                <span className="font-bold text-slate-900 text-sm block">InternAdda Career Innovations</span>
+                <span className="text-[11px] text-slate-400">Standardized Technical Assessment Platform</span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-6 font-medium text-slate-600">
-              <a href="#how-it-works" className="hover:text-slate-900">Evaluation Lifecycle</a>
-              <a href="#tracks" className="hover:text-slate-900">Active Tracks</a>
-              <a href="#proctoring" className="hover:text-slate-900">Integrity Protocol</a>
-              <a href="#refund-policy" className="hover:text-slate-900">Refund T&C</a>
-              <a href="#partners" className="hover:text-slate-900">Hiring Partners</a>
+            {/* Quick Links */}
+            <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6 font-medium text-slate-600">
+              <a href="#how-it-works" className="hover:text-blue-600">How It Works</a>
+              <a href="#tracks" className="hover:text-blue-600">Tracks</a>
+              <a href="#proctoring" className="hover:text-blue-600">Proctoring</a>
+              <a href="#refund-policy" className="hover:text-blue-600">Refund T&C</a>
+              <a href="https://upforge.org/quiz" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold hover:underline">
+                Free Quiz
+              </a>
             </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
-            <span>© 2026 internadda.com. All rights reserved. Registered Technical Assessment Infrastructure.</span>
+          <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400 text-center sm:text-left">
+            <span>© 2026 internadda.com. All rights reserved. Registered Evaluation System.</span>
             <div className="flex items-center space-x-3 font-mono">
-              <span>ISO 9001 Aligned</span>
+              <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-600">ISO 9001 Aligned</span>
               <span>•</span>
               <button onClick={() => navigate("/login")} className="hover:text-slate-700">
-                Admin Portal
+                Admin
               </button>
             </div>
           </div>
