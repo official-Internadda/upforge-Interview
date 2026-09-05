@@ -7,7 +7,12 @@ import {
   FiUploadCloud,
   FiLock,
   FiCheckCircle,
-  FiArrowLeft
+  FiArrowLeft,
+  FiClock,
+  FiVideo,
+  FiAlertTriangle,
+  FiRotateCcw,
+  FiHelpCircle
 } from "react-icons/fi";
 
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
@@ -18,7 +23,7 @@ export default function AssessmentGateway() {
 
   const formattedRole = rawRole
     ? rawRole.replace(/-/g, " ").toUpperCase()
-    : "SOFTWARE ENGINEER";
+    : "TECHNICAL ASSESSMENT";
 
   const [name, setName] = useState("");
   const [file, setFile] = useState(null);
@@ -31,14 +36,14 @@ export default function AssessmentGateway() {
       setFile(selected);
       setError("");
     } else {
-      setError("Please select a readable PDF document.");
+      setError("Please attach a readable text PDF resume.");
     }
   };
 
   const handleProceedPayment = async (e) => {
     e.preventDefault();
     if (!name.trim() || !file) {
-      setError("Please enter your Full Legal Name and attach your PDF resume.");
+      setError("Please enter your name and attach your PDF resume.");
       return;
     }
 
@@ -46,7 +51,7 @@ export default function AssessmentGateway() {
     setError("");
 
     try {
-      // 1. Parse Resume PDF
+      // 1. Upload and Parse Resume
       const formData = new FormData();
       formData.append("resume", file);
       const parseRes = await fetch(`${BACKEND}/parse-resume`, {
@@ -54,12 +59,12 @@ export default function AssessmentGateway() {
         body: formData,
       });
       const parseData = await parseRes.json();
-      if (!parseRes.ok) throw new Error(parseData.error || "Failed reading resume PDF.");
+      if (!parseRes.ok) throw new Error(parseData.error || "Unable to read PDF file.");
 
       const resumeText = parseData.text;
       const sessionId = crypto.randomUUID();
 
-      // 2. Create Cashfree ₹29 Order
+      // 2. Create Order for ₹29
       const orderRes = await fetch(`${BACKEND}/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -71,7 +76,7 @@ export default function AssessmentGateway() {
       const orderData = await orderRes.json();
       if (!orderRes.ok) throw new Error(orderData.error || "Payment initialization failed.");
 
-      // 3. Save pending session in Firestore
+      // 3. Store pending attempt in Firestore
       await addDoc(collection(db, "sessions"), {
         sessionId,
         orderId: orderData.orderId,
@@ -89,9 +94,9 @@ export default function AssessmentGateway() {
       localStorage.setItem("upforge_session_id", sessionId);
       localStorage.setItem("upforge_order_id", orderData.orderId);
 
-      // 4. Trigger Cashfree Checkout
+      // 4. Trigger Cashfree
       if (!window.Cashfree) {
-        throw new Error("Cashfree SDK is loading. Please refresh and try again.");
+        throw new Error("Payment gateway is loading. Please retry in 2 seconds.");
       }
 
       const cashfree = window.Cashfree({ mode: "production" });
@@ -101,82 +106,102 @@ export default function AssessmentGateway() {
       });
     } catch (err) {
       console.error(err);
-      setError(err.message || "An unexpected error occurred. Please try again.");
+      setError(err.message || "An error occurred. Please try again.");
       setUploading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-blue-600 selection:text-white">
-      {/* Header */}
+      {/* Top Simple Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center text-xs font-bold text-slate-600 hover:text-slate-900 transition"
+            className="flex items-center text-xs font-semibold text-slate-600 hover:text-slate-900 transition"
           >
             <FiArrowLeft className="mr-1.5" /> Back to Tracks
           </button>
 
           <div className="flex items-center space-x-2">
-            <img src="/logo.jpg" alt="Logo" className="h-7 w-auto rounded object-contain" />
+            <img src="/logo.jpg" alt="InternAdda" className="h-6 w-auto rounded object-contain" />
             <span className="text-slate-300 text-xs">|</span>
-            <img src="/upforge.jpg" alt="Partner" className="h-6 w-auto rounded object-contain" />
+            <img src="/upforge.jpg" alt="UpForge" className="h-5 w-auto rounded object-contain" />
           </div>
 
-          <span className="text-[11px] font-mono font-bold text-emerald-600 flex items-center">
+          <span className="text-[11px] font-mono font-semibold text-emerald-600 flex items-center">
             <FiLock className="mr-1" /> 256-Bit SSL
           </span>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-lg mx-auto px-4 py-12 w-full">
-        <div className="text-center mb-8 space-y-1.5">
-          <span className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+      <main className="flex-1 max-w-md mx-auto px-4 py-8 w-full">
+        {/* Title Header */}
+        <div className="text-center mb-5 space-y-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
             {formattedRole}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+          <h1 className="text-2xl font-extrabold text-slate-900">
             Candidate Verification
           </h1>
-          <p className="text-xs text-slate-500">
-            Provide your details to launch the proctored 30-minute technical terminal.
+        </div>
+
+        {/* Exam Guidelines & Warning Box */}
+        <div className="mb-4 bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3.5 text-xs text-amber-900 space-y-2">
+          <div className="flex items-center space-x-1.5 font-bold text-amber-950">
+            <FiAlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Strict Integrity & Proctoring Rules:</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[11px] text-amber-800">
+            <span className="flex items-center">
+              <FiClock className="mr-1.5 text-amber-700 shrink-0" /> 30 Min Timer
+            </span>
+            <span className="flex items-center">
+              <FiVideo className="mr-1.5 text-amber-700 shrink-0" /> Active Webcam
+            </span>
+          </div>
+          <p className="text-[11px] text-amber-800/90 leading-tight">
+            Do not switch browser tabs or move away from camera view. Violations will result in immediate disqualification.
           </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+        {/* Compact Form Card */}
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
           {error && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleProceedPayment} className="space-y-5">
+          <form onSubmit={handleProceedPayment} className="space-y-3.5">
+            {/* Name Input */}
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                Full Legal Name
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Your Name
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Rahul Sharma"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+                placeholder="Enter your name"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition"
               />
             </div>
 
+            {/* Resume Upload Box */}
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                Upload Resume (PDF Only)
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Attach Resume (PDF)
               </label>
-              <label className="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition">
-                <FiUploadCloud className="w-8 h-8 text-blue-600 mb-2" />
+              <label className="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 rounded-xl p-3.5 flex flex-col items-center justify-center cursor-pointer transition">
+                <FiUploadCloud className="w-6 h-6 text-blue-600 mb-1" />
                 <span className="text-xs font-bold text-slate-800 text-center truncate max-w-xs">
-                  {file ? file.name : "Select your PDF resume"}
+                  {file ? file.name : "Click to select PDF resume"}
                 </span>
-                <span className="text-[10px] text-slate-400 mt-1">
-                  10 assessment questions will be generated from your actual project stack
+                <span className="text-[10px] text-slate-400">
+                  Questions will test skills from your resume
                 </span>
                 <input
                   type="file"
@@ -187,44 +212,66 @@ export default function AssessmentGateway() {
               </label>
             </div>
 
-            {/* Pricing Summary */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>AI Technical Evaluation & GPU Fee</span>
-                <span>₹29.00</span>
+            {/* Fee Breakdown & Anti-Cheating Refund Guarantee */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 font-medium flex items-center">
+                  <FiShield className="mr-1.5 text-blue-600" />
+                  Anti-Cheating Security Fee
+                </span>
+                <span className="font-bold text-slate-900">₹29.00</span>
               </div>
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>Direct Talent Registry Archival</span>
-                <span className="text-emerald-600 font-bold">Included</span>
-              </div>
-              <div className="border-t border-slate-200 pt-2 flex justify-between text-sm font-extrabold text-slate-900">
-                <span>Payable Amount:</span>
-                <span className="text-blue-600 font-mono">₹29.00</span>
+
+              <div className="flex items-start space-x-1.5 pt-1 border-t border-slate-200/80 text-[11px] text-emerald-700">
+                <FiRotateCcw className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span>
+                  <strong>100% Refundable:</strong> If you complete and qualify without cheating or tab switching, the deposit is refunded within 7 days.
+                </span>
               </div>
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={uploading}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition shadow-sm active:scale-95"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition shadow-sm active:scale-95"
             >
               {uploading ? (
-                <span>Parsing PDF & Connecting Cashfree...</span>
+                <span>Parsing PDF & Initializing...</span>
               ) : (
-                <span>Pay ₹29 & Enter Terminal</span>
+                <span>Pay ₹29 Deposit & Enter Terminal</span>
               )}
             </button>
           </form>
 
-          <div className="pt-2 flex items-center justify-center space-x-4 text-[11px] text-slate-500">
+          {/* Secure Trust Badges */}
+          <div className="pt-1 flex items-center justify-center space-x-4 text-[11px] text-slate-500">
             <span className="flex items-center">
-              <FiShield className="mr-1 text-blue-600" /> Webcam Proctored
+              <FiShield className="mr-1 text-blue-600" /> Web-Proctored
             </span>
             <span>•</span>
             <span className="flex items-center">
               <FiCheckCircle className="mr-1 text-emerald-600" /> Cashfree Verified
             </span>
           </div>
+        </div>
+
+        {/* High-Trust Transparent Policy Disclaimer Note */}
+        <div className="mt-5 p-4 rounded-2xl bg-white border border-slate-200 text-slate-600 text-[11px] leading-relaxed shadow-xs space-y-2">
+          <div className="flex items-center space-x-1.5 font-bold text-slate-800">
+            <FiHelpCircle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span>Candidate Notice:</span>
+          </div>
+          <p>
+            <strong>Note:</strong> InternAdda may charge a small evaluation fee (₹10–₹29), which is not a hiring fee charged by UpForge. If you qualify through a fair, non-AI assessment, the amount will be refunded as per InternAdda’s policy.
+          </p>
+          <p className="pt-1 border-t border-slate-100 font-mono text-[10px] text-slate-500">
+            For any payment or refund-related clarification, please contact{" "}
+            <a href="mailto:support@internadda.com" className="text-blue-600 underline font-semibold">
+              support@internadda.com
+            </a>{" "}
+            directly.
+          </p>
         </div>
       </main>
     </div>
