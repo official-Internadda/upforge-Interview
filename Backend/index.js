@@ -15,15 +15,13 @@ const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || "11077281f181acdf5262a387
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || "cfsk_ma_prod_07a74006fac339b18a4b690c5b9f68b9_2e31571c";
 const CASHFREE_BASE_URL = "https://api.cashfree.com/pg";
 
-// ---------------- MULTI-API KEY FALLBACK POOL ---------------- //
-// Yahan aap 2 se 4 keys daal sakte hain (comma-separated ya multiple env variables)
+// Multi-API Key Failover Pool
 const API_KEYS = [
   process.env.GROQ_API_KEY,
   process.env.GROQ_API_KEY_2,
   process.env.GROQ_API_KEY_3,
 ].filter(Boolean);
 
-// Default fallback agar env set na ho
 if (API_KEYS.length === 0 && process.env.GROQ_API_KEY) {
   API_KEYS.push(process.env.GROQ_API_KEY);
 }
@@ -35,8 +33,7 @@ const CHAT_MODELS = [
   "groq/compound",
 ];
 
-// Helper to safely rotate keys and models if 429 or quota hit
-async function runGroqChatMultiKey(messages, maxTokens = 450, temperature = 0.4) {
+async function runGroqChatMultiKey(messages, maxTokens = 350, temperature = 0.35) {
   let lastError = null;
 
   for (let keyIndex = 0; keyIndex < API_KEYS.length; keyIndex++) {
@@ -70,9 +67,8 @@ async function runGroqChatMultiKey(messages, maxTokens = 450, temperature = 0.4)
       } catch (err) {
         console.warn(`Key #${keyIndex + 1} with Model ${model} failed:`, err?.status || err?.message);
         lastError = err;
-        // Agar rate limit (429) hai to agle key par switch karein
         if (err?.status === 429) {
-          break; // Try next key
+          break;
         }
       }
     }
@@ -92,7 +88,7 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// ---------------- CASHFREE PAYMENT (₹29) ---------------- //
+// Cashfree Payment
 app.post("/create-order", async (req, res) => {
   const { candidateName, role } = req.body;
 
@@ -171,7 +167,7 @@ app.post("/verify-order", async (req, res) => {
   }
 });
 
-// ---------------- RESUME PDF EXTRACTOR ---------------- //
+// Resume PDF Parser
 async function extractTextFromPDF(buffer) {
   const uint8Array = new Uint8Array(buffer);
   const pdf = await getDocument({ data: uint8Array }).promise;
@@ -205,7 +201,7 @@ app.post("/parse-resume", upload.single("resume"), async (req, res) => {
   }
 });
 
-// ---------------- RE-ENGINEERED TECHNICAL TERMINAL ENGINE ---------------- //
+// Crisp, High-Difficulty Technical Terminal Engine
 app.post("/chat", async (req, res) => {
   const { messages, resumeText, role } = req.body;
 
@@ -213,44 +209,52 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "Assessment role is required." });
   }
 
-  const safeResume = resumeText || "General Candidate with foundational tech stack.";
+  const safeResume = resumeText || "Candidate with software engineering & data systems background.";
 
-  // High-bar prompt with strict indentation & layout
-  const systemPrompt = `You are a Principal Tech Lead and Bar-Raiser conducting a demanding, real-world 10-Question Technical Assessment for the role of "${role}".
-Candidate Resume Context:
-=== CANDIDATE RESUME ===
+  const systemPrompt = `You are a Principal Technical Interviewer conducting a rigorous, 10-question technical terminal assessment for "${role}".
+Candidate Resume:
+=== RESUME ===
 ${safeResume}
-=== END RESUME ===
+=== END ===
 
-FORMATTING & INTERVIEW RULES:
-1. ALWAYS present every question with clear structured sections and clean line breaks:
-   • Brief professional comment on their previous answer (or greeting for Turn 1).
-   • [SCENARIO]: Real-world system scale, database lock, latency constraint, or framework architecture issue derived specifically from technologies on their resume.
-   • [PROBLEM]: The exact bottleneck, race condition, data inconsistency, or algorithmic challenge.
-   • [QUESTION]: A direct, specific question asking how they would solve or architect this (ask for logic, queries, or pseudocode).
-2. DO NOT output dense unformatted paragraphs. Use bullet points and line breaks so it is easily readable in a terminal.
-3. HANDLING TRIVIAL/CASUAL REPLIES:
-   • If the candidate replies with casual text like "hey", "ok", "hi", or gives a vague one-line response, DO NOT advance the question count.
-   • Push back firmly and professionally: Explain that this is a technical assessment and demand their technical solution to the previous problem before proceeding.
-4. Strictly ask ONE question per turn.
-5. After exactly 10 answered technical rounds, terminate gracefully with:
-   "Assessment concluded. Compiling technical telemetry and metrics for the hiring committee." followed immediately by [ASSESSMENT_COMPLETE].`;
+FORMATTING & EXECUTION RULES:
+1. Do NOT use conversational fluff, greetings after Turn 1, or dense walls of markdown bolding (**).
+2. Keep questions concise, sharp, aesthetically clean, and technically challenging.
+3. Always format your output strictly into these 3 compact, indented sections:
+
+[CHALLENGE #X] — Short 1-line architecture context directly derived from their resume stack.
+
+[SCENARIO & CONSTRAINTS]
+• Scale / Setup: Specific scale, memory limit, table size, or concurrency condition.
+• Failure Mode: Specific bottleneck, edge-case (0/NULL values), race condition, or latency spike.
+
+[YOUR SOLUTION]
+Ask for the exact logic, SQL query, code block, or tradeoff choice in 1 to 2 sentences.
+
+4. CASUAL / IRRELEVANT INPUT HANDLING:
+If candidate replies with casual text ("hey", "ok", "sql is useless", or evasive remarks), write strictly ONE sentence:
+"This is a technical assessment round. Please provide your technical architecture or code for [CHALLENGE #X] above to proceed."
+(Do not count this as an answered question).
+
+5. Ask strictly ONE challenge at a time.
+6. After 10 technical challenges are completed, conclude strictly with:
+"Assessment concluded. Telemetry and code metrics indexed for the hiring committee." followed by [ASSESSMENT_COMPLETE].`;
 
   let chatMessages = [];
   if (!messages || messages.length === 0) {
     chatMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "ASSESSMENT_START: Candidate is verified at the terminal. Greet and present Question 1 based on their resume project." }
+      { role: "user", content: "START_ASSESSMENT: Present Challenge #1 targeting a complex system or tool mentioned on my resume." }
     ];
   } else {
     chatMessages = [{ role: "system", content: systemPrompt }, ...messages];
     if (chatMessages[chatMessages.length - 1].role !== "user") {
-      chatMessages.push({ role: "user", content: "Evaluate my response and present the next challenge." });
+      chatMessages.push({ role: "user", content: "Evaluate my answer and present the next challenge." });
     }
   }
 
   try {
-    const { reply } = await runGroqChatMultiKey(chatMessages, 450, 0.4);
+    const { reply } = await runGroqChatMultiKey(chatMessages, 350, 0.35);
     const isComplete = reply.includes("[ASSESSMENT_COMPLETE]");
     const cleanReply = reply.replace("[ASSESSMENT_COMPLETE]", "").trim();
 
@@ -261,7 +265,7 @@ FORMATTING & INTERVIEW RULES:
   }
 });
 
-// ---------------- CANDIDATE REPORT ENGINE ---------------- //
+// Candidate Report Engine
 app.post("/generate-report", async (req, res) => {
   const { transcript, role, candidateName } = req.body;
 
