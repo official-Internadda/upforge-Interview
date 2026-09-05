@@ -17,6 +17,79 @@ import {
 const BACKEND = import.meta.env.VITE_API_BASE_URL || "https://interview-api.internadda.com";
 const TOTAL_SECONDS = 1800; // 30 Minutes
 
+// Helper to cleanly format bold, backticks, and clean line-breaks without raw markdown symbols
+function FormattedMessage({ text, isAssistant }) {
+  if (!text) return null;
+
+  // Split into paragraphs / lines
+  const lines = text.split("\n");
+
+  return (
+    <div className="space-y-1.5 leading-relaxed">
+      {lines.map((line, lIdx) => {
+        if (!line.trim()) return <div key={lIdx} className="h-2" />;
+
+        // Regex to parse **bold** and `code`
+        const parts = [];
+        let remaining = line;
+        let pKey = 0;
+
+        while (remaining.length > 0) {
+          const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+          const codeMatch = remaining.match(/`(.+?)`/);
+
+          let firstMatch = null;
+          let matchType = null;
+
+          if (boldMatch && codeMatch) {
+            if (boldMatch.index <= codeMatch.index) {
+              firstMatch = boldMatch;
+              matchType = "bold";
+            } else {
+              firstMatch = codeMatch;
+              matchType = "code";
+            }
+          } else if (boldMatch) {
+            firstMatch = boldMatch;
+            matchType = "bold";
+          } else if (codeMatch) {
+            firstMatch = codeMatch;
+            matchType = "code";
+          }
+
+          if (firstMatch) {
+            const before = remaining.substring(0, firstMatch.index);
+            if (before) parts.push(<span key={pKey++}>{before}</span>);
+
+            if (matchType === "bold") {
+              parts.push(
+                <strong key={pKey++} className="font-bold text-slate-950">
+                  {firstMatch[1]}
+                </strong>
+              );
+            } else {
+              parts.push(
+                <code
+                  key={pKey++}
+                  className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-blue-700 font-mono text-[13px]"
+                >
+                  {firstMatch[1]}
+                </code>
+              );
+            }
+            remaining = remaining.substring(firstMatch.index + firstMatch[0].length);
+          } else {
+            parts.push(<span key={pKey++}>{remaining}</span>);
+            break;
+          }
+        }
+
+        return <p key={lIdx}>{parts}</p>;
+      })}
+    </div>
+  );
+}
+
 export default function TerminalRoom() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -381,7 +454,7 @@ export default function TerminalRoom() {
             {messages.map((m, idx) => (
               <div
                 key={idx}
-                className={`p-5 sm:p-7 rounded-3xl border transition-all ${
+                className={`p-5 sm:p-6 rounded-3xl border transition-all ${
                   m.role === "assistant"
                     ? "bg-white border-slate-200 text-slate-900 shadow-sm"
                     : "bg-blue-50/90 border-blue-200 text-blue-950 font-mono shadow-2xs"
@@ -389,14 +462,14 @@ export default function TerminalRoom() {
               >
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
                   <span className={`font-bold text-xs uppercase tracking-wider ${m.role === "assistant" ? "text-blue-700" : "text-slate-600"}`}>
-                    {m.role === "assistant" ? "⚡ Technical Examiner Challenge" : "Candidate Code / Response"}
+                    {m.role === "assistant" ? "Technical Examiner" : "Candidate Response"}
                   </span>
                   <span className="text-xs text-slate-400 font-mono font-semibold">#{(idx + 1).toString().padStart(2, "0")}</span>
                 </div>
 
-                {/* Structured Text Render with clean line breaks */}
-                <div className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-normal space-y-2">
-                  {m.content}
+                {/* Formatted Markdown Content Render (Eliminates raw ** or ` marks) */}
+                <div className="text-sm sm:text-base font-normal">
+                  <FormattedMessage text={m.content} isAssistant={m.role === "assistant"} />
                 </div>
               </div>
             ))}
@@ -404,7 +477,7 @@ export default function TerminalRoom() {
             {thinking && (
               <div className="p-4 bg-white border border-slate-200 rounded-2xl text-blue-600 flex items-center space-x-3 animate-pulse text-sm font-medium shadow-xs">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></span>
-                <span>AI Examiner is analyzing your architectural trade-offs...</span>
+                <span>AI Examiner is reviewing your response...</span>
               </div>
             )}
 
@@ -523,7 +596,7 @@ export default function TerminalRoom() {
                     }
                   }}
                   disabled={thinking}
-                  placeholder="Type your explanation, logic, or code here... (Shift+Enter for newline, Enter to submit)"
+                  placeholder="Type your response, explanation, or code here... (Shift+Enter for newline, Enter to submit)"
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm sm:text-base font-mono resize-none focus:outline-none focus:border-blue-600 focus:bg-white text-slate-900 transition"
                   rows={2}
                 />
