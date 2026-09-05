@@ -344,8 +344,8 @@ export default function AssessmentGateway() {
               </p>
               <p className="font-mono text-[11px] text-slate-500 pt-1 border-t border-slate-100">
                 Queries & support:{" "}
-                <a href="mailto:support@internadda.com" className="text-blue-600 underline font-semibold">
-                  support@internadda.com
+                <a href="mailto:partners@internadda.com" className="text-blue-600 underline font-semibold">
+                  partners@internadda.com
                 </a>
               </p>
             </div>
